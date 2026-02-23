@@ -16,7 +16,7 @@ from vpo.policy.loader import PolicyValidationError, load_policy_from_dict
 
 # Minimal valid phased policy dict, used as a base for loader tests.
 _BASE_POLICY = {
-    "schema_version": 12,
+    "schema_version": 13,
     "config": {"on_error": "continue"},
     "phases": [{"name": "apply", "track_order": ["video"]}],
 }
@@ -24,7 +24,7 @@ _BASE_POLICY = {
 # Minimal valid policy YAML body (after the name line).
 _YAML_BODY = (
     "config:\n"
-    "  audio_language_preference: [eng]\n"
+    "  audio_languages: [eng]\n"
     "phases:\n"
     "  - name: apply\n"
     "    track_order: [video]\n"
@@ -39,7 +39,7 @@ def _load_with_name(name_value):
 def _write_policy_yaml(tmp_path, *, name_line: str = "") -> Path:
     """Write a minimal policy YAML file, optionally with a name line."""
     policy_file = tmp_path / "test.yaml"
-    header = "schema_version: 12\n"
+    header = "schema_version: 13\n"
     if name_line:
         header += name_line + "\n"
     policy_file.write_text(header + _YAML_BODY)
@@ -168,10 +168,10 @@ class TestRoundTripEditorPreservesName:
 
         policy_file = tmp_path / "test.yaml"
         policy_file.write_text(
-            "schema_version: 12\n"
+            "schema_version: 13\n"
             "name: My Policy\n"
             "config:\n"
-            "  audio_language_preference:\n"
+            "  audio_languages:\n"
             "    - eng\n"
             "phases:\n"
             "  - name: apply\n"

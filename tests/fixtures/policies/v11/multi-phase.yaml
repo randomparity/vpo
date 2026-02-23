@@ -1,22 +1,22 @@
 # Multi-Phase Policy Fixture
 # Used to test multiple phase execution in order
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference: [eng, jpn, und]
-  subtitle_language_preference: [eng, jpn]
+  audio_languages: [eng, jpn, und]
+  subtitle_languages: [eng, jpn]
   commentary_patterns: [commentary, director]
   on_error: continue
 
 phases:
   - name: cleanup
-    audio_filter:
+    keep_audio:
       languages: [eng, jpn, und]
       minimum: 1
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, jpn]
       preserve_forced: true
-    attachment_filter:
+    filter_attachments:
       remove_all: true
 
   - name: organize
@@ -33,14 +33,12 @@ phases:
   - name: compress
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
         skip_if:
           codec_matches: [hevc, h265]
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
+        crf: 20
+        preset: medium
       audio:
-        preserve_codecs: [truehd, dts-hd, flac]
-        transcode_to: aac
-        transcode_bitrate: 192k
+        preserve: [truehd, dts-hd, flac]
+        to: aac
+        bitrate: 192k

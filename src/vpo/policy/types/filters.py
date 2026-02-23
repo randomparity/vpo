@@ -60,7 +60,7 @@ class DefaultFlagsConfig:
     set_subtitle_default_when_audio_differs: bool = False
     set_subtitle_forced_when_audio_differs: bool = False
     """If True, set forced flag on preferred subtitle when default audio
-    language differs from audio_language_preference. Useful for ensuring
+    language differs from audio_languages. Useful for ensuring
     subtitles display automatically for foreign language content."""
 
     preferred_audio_codec: tuple[str, ...] | None = None

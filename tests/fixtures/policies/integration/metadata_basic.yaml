@@ -1,13 +1,13 @@
 # Basic metadata policy
 # Used for testing default flag operations via mkvpropedit
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - jpn
     - fra
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - jpn
 

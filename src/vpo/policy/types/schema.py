@@ -12,6 +12,7 @@ from vpo.policy.types.conditions import Comparison
 from vpo.policy.types.enums import (
     CANONICAL_OPERATION_ORDER,
     DEFAULT_TRACK_ORDER,
+    MatchMode,
     OnErrorMode,
     OperationType,
     TrackType,
@@ -127,14 +128,12 @@ class GlobalConfig:
     by per-phase configuration.
     """
 
-    # Language preferences (existing)
-    audio_language_preference: tuple[str, ...] = ("eng", "und")
+    audio_languages: tuple[str, ...] = ("eng", "und")
     """Ordered list of preferred audio languages (ISO 639-2/B codes)."""
 
-    subtitle_language_preference: tuple[str, ...] = ("eng", "und")
+    subtitle_languages: tuple[str, ...] = ("eng", "und")
     """Ordered list of preferred subtitle languages (ISO 639-2/B codes)."""
 
-    # Track classification (existing)
     commentary_patterns: tuple[str, ...] = (
         "commentary",
         "director",
@@ -142,9 +141,23 @@ class GlobalConfig:
     )
     """Patterns to match commentary track titles."""
 
-    # Error handling (moved from WorkflowConfig)
     on_error: OnErrorMode = OnErrorMode.CONTINUE
     """How to handle errors during phase execution."""
+
+
+@dataclass(frozen=True)
+class RulesConfig:
+    """Configuration for conditional rules within a phase.
+
+    Wraps the list of rules with a match mode that controls
+    evaluation semantics.
+    """
+
+    match: MatchMode
+    """How rules are matched: FIRST (stop on first match) or ALL (evaluate all)."""
+
+    items: tuple[ConditionalRule, ...]
+    """Ordered list of conditional rules to evaluate."""
 
 
 @dataclass(frozen=True)
@@ -163,13 +176,13 @@ class PhaseDefinition:
     container: ContainerConfig | None = None
     """Container format conversion configuration."""
 
-    audio_filter: AudioFilterConfig | None = None
+    keep_audio: AudioFilterConfig | None = None
     """Audio track filtering configuration."""
 
-    subtitle_filter: SubtitleFilterConfig | None = None
+    keep_subtitles: SubtitleFilterConfig | None = None
     """Subtitle track filtering configuration."""
 
-    attachment_filter: AttachmentFilterConfig | None = None
+    filter_attachments: AttachmentFilterConfig | None = None
     """Attachment track filtering configuration."""
 
     track_order: tuple[TrackType, ...] | None = None
@@ -178,8 +191,8 @@ class PhaseDefinition:
     default_flags: DefaultFlagsConfig | None = None
     """Default flag configuration."""
 
-    conditional: tuple[ConditionalRule, ...] | None = None
-    """Conditional rules for this phase."""
+    rules: RulesConfig | None = None
+    """Conditional rules for this phase (match mode + items)."""
 
     audio_synthesis: AudioSynthesisConfig | None = None
     """Audio synthesis configuration."""
@@ -224,18 +237,16 @@ class PhaseDefinition:
         for op_type in CANONICAL_OPERATION_ORDER:
             if op_type == OperationType.CONTAINER and self.container is not None:
                 ops.append(op_type)
-            elif (
-                op_type == OperationType.AUDIO_FILTER and self.audio_filter is not None
-            ):
+            elif op_type == OperationType.AUDIO_FILTER and self.keep_audio is not None:
                 ops.append(op_type)
             elif (
                 op_type == OperationType.SUBTITLE_FILTER
-                and self.subtitle_filter is not None
+                and self.keep_subtitles is not None
             ):
                 ops.append(op_type)
             elif (
                 op_type == OperationType.ATTACHMENT_FILTER
-                and self.attachment_filter is not None
+                and self.filter_attachments is not None
             ):
                 ops.append(op_type)
             elif op_type == OperationType.TRACK_ORDER and self.track_order is not None:
@@ -245,7 +256,7 @@ class PhaseDefinition:
                 and self.default_flags is not None
             ):
                 ops.append(op_type)
-            elif op_type == OperationType.CONDITIONAL and self.conditional is not None:
+            elif op_type == OperationType.CONDITIONAL and self.rules is not None:
                 ops.append(op_type)
             elif (
                 op_type == OperationType.AUDIO_SYNTHESIS
@@ -282,14 +293,14 @@ class EvaluationPolicy:
     PhaseExecutor for each phase execution.
     """
 
-    schema_version: Literal[12] = 12
+    schema_version: Literal[13] = 13
     """Schema version."""
 
     # From GlobalConfig
-    audio_language_preference: tuple[str, ...] = ("eng", "und")
+    audio_languages: tuple[str, ...] = ("eng", "und")
     """Ordered list of preferred audio languages."""
 
-    subtitle_language_preference: tuple[str, ...] = ("eng", "und")
+    subtitle_languages: tuple[str, ...] = ("eng", "und")
     """Ordered list of preferred subtitle languages."""
 
     commentary_patterns: tuple[str, ...] = ("commentary", "director")
@@ -304,20 +315,20 @@ class EvaluationPolicy:
     )
     """Default flag settings."""
 
-    audio_filter: AudioFilterConfig | None = None
+    keep_audio: AudioFilterConfig | None = None
     """Audio filter configuration."""
 
-    subtitle_filter: SubtitleFilterConfig | None = None
+    keep_subtitles: SubtitleFilterConfig | None = None
     """Subtitle filter configuration."""
 
-    attachment_filter: AttachmentFilterConfig | None = None
+    filter_attachments: AttachmentFilterConfig | None = None
     """Attachment filter configuration."""
 
     container: ContainerConfig | None = None
     """Container configuration."""
 
-    conditional_rules: tuple[ConditionalRule, ...] | None = None
-    """Conditional rules."""
+    rules: RulesConfig | None = None
+    """Conditional rules with match mode."""
 
     transcription: TranscriptionPolicyOptions | None = None
     """Transcription settings."""
@@ -332,9 +343,9 @@ class EvaluationPolicy:
     def has_track_filtering(self) -> bool:
         """True if any track filtering is configured."""
         return (
-            self.audio_filter is not None
-            or self.subtitle_filter is not None
-            or self.attachment_filter is not None
+            self.keep_audio is not None
+            or self.keep_subtitles is not None
+            or self.filter_attachments is not None
         )
 
     @property
@@ -343,9 +354,9 @@ class EvaluationPolicy:
         return self.container is not None
 
     @property
-    def has_conditional_rules(self) -> bool:
+    def has_rules(self) -> bool:
         """True if conditional rules are defined."""
-        return self.conditional_rules is not None and len(self.conditional_rules) > 0
+        return self.rules is not None and len(self.rules.items) > 0
 
     @property
     def has_transcription_settings(self) -> bool:
@@ -366,17 +377,17 @@ class EvaluationPolicy:
             EvaluationPolicy suitable for evaluate_policy().
         """
         return cls(
-            schema_version=12,
-            audio_language_preference=config.audio_language_preference,
-            subtitle_language_preference=config.subtitle_language_preference,
+            schema_version=13,
+            audio_languages=config.audio_languages,
+            subtitle_languages=config.subtitle_languages,
             commentary_patterns=config.commentary_patterns,
             track_order=phase.track_order or DEFAULT_TRACK_ORDER,
             default_flags=phase.default_flags or DefaultFlagsConfig(),
-            audio_filter=phase.audio_filter,
-            subtitle_filter=phase.subtitle_filter,
-            attachment_filter=phase.attachment_filter,
+            keep_audio=phase.keep_audio,
+            keep_subtitles=phase.keep_subtitles,
+            filter_attachments=phase.filter_attachments,
             container=phase.container,
-            conditional_rules=phase.conditional,
+            rules=phase.rules,
             transcription=phase.transcription,
             audio_actions=phase.audio_actions,
             subtitle_actions=phase.subtitle_actions,
@@ -391,8 +402,8 @@ class PolicySchema:
     where each phase groups related operations.
     """
 
-    schema_version: Literal[12]
-    """Schema version, must be exactly 12."""
+    schema_version: Literal[13]
+    """Schema version, must be exactly 13."""
 
     config: GlobalConfig
     """Global configuration shared across all phases."""
@@ -411,9 +422,9 @@ class PolicySchema:
 
     def __post_init__(self) -> None:
         """Validate policy schema."""
-        if self.schema_version != 12:
+        if self.schema_version != 13:
             raise ValueError(
-                f"PolicySchema requires schema_version=12, got {self.schema_version}"
+                f"PolicySchema requires schema_version=13, got {self.schema_version}"
             )
         if not self.phases:
             raise ValueError("phases cannot be empty, at least one phase required")

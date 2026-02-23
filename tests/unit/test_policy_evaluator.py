@@ -31,7 +31,7 @@ from vpo.policy.types import (
 def default_policy() -> EvaluationPolicy:
     """Create a default policy for testing."""
     return EvaluationPolicy(
-        schema_version=12,
+        schema_version=13,
         track_order=(
             TrackType.VIDEO,
             TrackType.AUDIO_MAIN,
@@ -42,8 +42,8 @@ def default_policy() -> EvaluationPolicy:
             TrackType.SUBTITLE_COMMENTARY,
             TrackType.ATTACHMENT,
         ),
-        audio_language_preference=("eng", "und"),
-        subtitle_language_preference=("eng", "und"),
+        audio_languages=("eng", "und"),
+        subtitle_languages=("eng", "und"),
         commentary_patterns=("commentary", "director"),
         default_flags=DefaultFlagsConfig(
             set_first_video_default=True,
@@ -58,9 +58,9 @@ def default_policy() -> EvaluationPolicy:
 def japanese_policy() -> EvaluationPolicy:
     """Create a Japanese-preferred policy for testing."""
     return EvaluationPolicy(
-        schema_version=12,
-        audio_language_preference=("jpn", "eng", "und"),
-        subtitle_language_preference=("eng", "und"),
+        schema_version=13,
+        audio_languages=("jpn", "eng", "und"),
+        subtitle_languages=("eng", "und"),
         commentary_patterns=("commentary", "director"),
         default_flags=DefaultFlagsConfig(
             set_first_video_default=True,
@@ -409,9 +409,9 @@ class TestComputeDefaultFlags:
     ):
         """English subtitle gets default when audio is German and English preferred."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -436,9 +436,9 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_when_audio_matches(self, matcher: CommentaryMatcher):
         """No subtitle default when audio matches preferred language."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -461,9 +461,9 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_when_audio_undefined(self, matcher: CommentaryMatcher):
         """Subtitle gets default when audio language is undefined."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng",),  # Note: 'und' NOT in preference
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng",),  # Note: 'und' NOT in preference
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -488,9 +488,9 @@ class TestComputeDefaultFlags:
     ):
         """Subtitle gets default when only commentary audio exists."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -519,9 +519,9 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_when_no_audio(self, matcher: CommentaryMatcher):
         """Subtitle gets default when no audio tracks exist."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -542,9 +542,9 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_disabled_by_config(self, matcher: CommentaryMatcher):
         """No subtitle default when feature is disabled, regardless of audio."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -567,9 +567,9 @@ class TestComputeDefaultFlags:
     def test_preferred_audio_codec_selects_matching(self, matcher: CommentaryMatcher):
         """Preferred codec selects matching track over first track."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -591,9 +591,9 @@ class TestComputeDefaultFlags:
     def test_preferred_audio_codec_respects_order(self, matcher: CommentaryMatcher):
         """First codec in preference list wins over later ones."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -613,9 +613,9 @@ class TestComputeDefaultFlags:
     def test_preferred_audio_codec_falls_back(self, matcher: CommentaryMatcher):
         """Falls back to first language match when no codec matches."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -635,9 +635,9 @@ class TestComputeDefaultFlags:
     def test_preferred_audio_codec_language_priority(self, matcher: CommentaryMatcher):
         """Language preference takes priority over codec preference."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "fra"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "fra"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -659,9 +659,9 @@ class TestComputeDefaultFlags:
     ):
         """None preferred_audio_codec preserves existing behavior."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -681,9 +681,9 @@ class TestComputeDefaultFlags:
     def test_preferred_audio_codec_skips_commentary(self, matcher: CommentaryMatcher):
         """Commentary tracks are excluded even if codec matches."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -709,9 +709,9 @@ class TestComputeDefaultFlags:
     def test_preferred_audio_codec_case_insensitive(self, matcher: CommentaryMatcher):
         """Codec matching is case-insensitive via audio_codec_matches."""
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_language_preference=("eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            schema_version=13,
+            audio_languages=("eng", "und"),
+            subtitle_languages=("eng", "und"),
             commentary_patterns=("commentary", "director"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
@@ -912,7 +912,7 @@ class TestEvaluatePolicy:
         )
         assert plan.file_id == "test-file-id"
         assert plan.file_path == Path("/test/file.mkv")
-        assert plan.policy_version == 12
+        assert plan.policy_version == 13
         assert isinstance(plan.created_at, datetime)
 
 
@@ -935,8 +935,8 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
         ]
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            schema_version=13,
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
         transcription_results = {
             100: TranscriptionInfo(
@@ -962,8 +962,8 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
         ]
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            schema_version=13,
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         # No transcription results
@@ -983,8 +983,8 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, track_type="video", codec="hevc"),
         ]
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            schema_version=13,
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         dispositions = compute_track_dispositions(tracks, policy, None)
@@ -1003,8 +1003,8 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, track_type="subtitle", codec="subrip", language="eng"),
         ]
         policy = EvaluationPolicy(
-            schema_version=12,
-            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+            schema_version=13,
+            keep_subtitles=SubtitleFilterConfig(languages=("eng",)),
         )
 
         dispositions = compute_track_dispositions(tracks, policy, None)
@@ -1031,8 +1031,8 @@ class TestTrackDispositionTranscriptionStatus:
             ),
         ]
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            schema_version=13,
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
         transcription_results = {
             100: TranscriptionInfo(
@@ -1070,8 +1070,8 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="fra"),
         ]
         policy = EvaluationPolicy(
-            schema_version=12,
-            audio_filter=AudioFilterConfig(
+            schema_version=13,
+            keep_audio=AudioFilterConfig(
                 languages=("eng",),
                 fallback=LanguageFallbackConfig(mode="keep_all"),
             ),

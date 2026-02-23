@@ -154,18 +154,18 @@ function announceToScreenReader(message) {
         display_name: window.POLICY_DATA.display_name || '',
         last_modified: window.POLICY_DATA.last_modified,
         track_order: [...window.POLICY_DATA.track_order],
-        audio_language_preference: [...window.POLICY_DATA.audio_language_preference],
-        subtitle_language_preference: [...window.POLICY_DATA.subtitle_language_preference],
+        audio_languages: [...window.POLICY_DATA.audio_languages],
+        subtitle_languages: [...window.POLICY_DATA.subtitle_languages],
         commentary_patterns: [...window.POLICY_DATA.commentary_patterns],
         default_flags: {...window.POLICY_DATA.default_flags},
         transcription: window.POLICY_DATA.transcription ? {...window.POLICY_DATA.transcription} : null,
         // V3-V10 fields (036-v9-policy-editor)
         transcode: window.POLICY_DATA.transcode ? JSON.parse(JSON.stringify(window.POLICY_DATA.transcode)) : null,
-        audio_filter: window.POLICY_DATA.audio_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_filter)) : null,
-        subtitle_filter: window.POLICY_DATA.subtitle_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.subtitle_filter)) : null,
-        attachment_filter: window.POLICY_DATA.attachment_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.attachment_filter)) : null,
+        keep_audio: window.POLICY_DATA.keep_audio ? JSON.parse(JSON.stringify(window.POLICY_DATA.keep_audio)) : null,
+        keep_subtitles: window.POLICY_DATA.keep_subtitles ? JSON.parse(JSON.stringify(window.POLICY_DATA.keep_subtitles)) : null,
+        filter_attachments: window.POLICY_DATA.filter_attachments ? JSON.parse(JSON.stringify(window.POLICY_DATA.filter_attachments)) : null,
         container: window.POLICY_DATA.container ? JSON.parse(JSON.stringify(window.POLICY_DATA.container)) : null,
-        conditional: window.POLICY_DATA.conditional ? JSON.parse(JSON.stringify(window.POLICY_DATA.conditional)) : null,
+        rules: window.POLICY_DATA.rules ? JSON.parse(JSON.stringify(window.POLICY_DATA.rules)) : null,
         audio_synthesis: window.POLICY_DATA.audio_synthesis ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_synthesis)) : null,
         workflow: window.POLICY_DATA.workflow ? JSON.parse(JSON.stringify(window.POLICY_DATA.workflow)) : null,
         // V11 fields (037-user-defined-phases)
@@ -433,7 +433,7 @@ function announceToScreenReader(message) {
      */
     function moveLanguageUp(listType, index) {
         if (index === 0) return
-        const list = listType === 'audio' ? formState.audio_language_preference : formState.subtitle_language_preference
+        const list = listType === 'audio' ? formState.audio_languages : formState.subtitle_languages
         const temp = list[index]
         list[index] = list[index - 1]
         list[index - 1] = temp
@@ -445,7 +445,7 @@ function announceToScreenReader(message) {
      * Move language down
      */
     function moveLanguageDown(listType, index) {
-        const list = listType === 'audio' ? formState.audio_language_preference : formState.subtitle_language_preference
+        const list = listType === 'audio' ? formState.audio_languages : formState.subtitle_languages
         if (index === list.length - 1) return
         const temp = list[index]
         list[index] = list[index + 1]
@@ -458,7 +458,7 @@ function announceToScreenReader(message) {
      * Remove language
      */
     function removeLanguage(listType, index) {
-        const list = listType === 'audio' ? formState.audio_language_preference : formState.subtitle_language_preference
+        const list = listType === 'audio' ? formState.audio_languages : formState.subtitle_languages
         list.splice(index, 1)
         renderLanguageLists()
         markDirty()
@@ -478,7 +478,7 @@ function announceToScreenReader(message) {
             return false
         }
 
-        const list = listType === 'audio' ? formState.audio_language_preference : formState.subtitle_language_preference
+        const list = listType === 'audio' ? formState.audio_languages : formState.subtitle_languages
 
         // Check for duplicates
         if (list.includes(trimmed)) {
@@ -506,8 +506,8 @@ function announceToScreenReader(message) {
      * Render all language lists
      */
     function renderLanguageLists() {
-        renderLanguageList(audioLangList, formState.audio_language_preference, 'audio')
-        renderLanguageList(subtitleLangList, formState.subtitle_language_preference, 'subtitle')
+        renderLanguageList(audioLangList, formState.audio_languages, 'audio')
+        renderLanguageList(subtitleLangList, formState.subtitle_languages, 'subtitle')
     }
 
     /**
@@ -659,15 +659,15 @@ function announceToScreenReader(message) {
         yaml += '\n'
 
         // Audio language preference
-        yaml += 'audio_language_preference:\n'
-        formState.audio_language_preference.forEach(lang => {
+        yaml += 'audio_languages:\n'
+        formState.audio_languages.forEach(lang => {
             yaml += `  - ${lang}\n`
         })
         yaml += '\n'
 
         // Subtitle language preference
-        yaml += 'subtitle_language_preference:\n'
-        formState.subtitle_language_preference.forEach(lang => {
+        yaml += 'subtitle_languages:\n'
+        formState.subtitle_languages.forEach(lang => {
             yaml += `  - ${lang}\n`
         })
         yaml += '\n'
@@ -754,11 +754,11 @@ function announceToScreenReader(message) {
             errors.push('Track order cannot be empty')
         }
 
-        if (formState.audio_language_preference.length === 0) {
+        if (formState.audio_languages.length === 0) {
             errors.push('Audio language preferences cannot be empty')
         }
 
-        if (formState.subtitle_language_preference.length === 0) {
+        if (formState.subtitle_languages.length === 0) {
             errors.push('Subtitle language preferences cannot be empty')
         }
 
@@ -878,8 +878,8 @@ function announceToScreenReader(message) {
      */
     const fieldToElementMap = {
         'track_order': 'track-order-list',
-        'audio_language_preference': 'audio-lang-list',
-        'subtitle_language_preference': 'subtitle-lang-list',
+        'audio_languages': 'audio-lang-list',
+        'subtitle_languages': 'subtitle-lang-list',
         'commentary_patterns': 'commentary-patterns-list',
         'default_flags': 'default-flags-section',
         'preferred_audio_codec': 'preferred_audio_codec'
@@ -989,25 +989,25 @@ function announceToScreenReader(message) {
 
         // Get filter configs from controller if available
         const filtersConfig = filtersController ? filtersController.getConfig() : {
-            audio_filter: formState.audio_filter,
-            subtitle_filter: formState.subtitle_filter,
-            attachment_filter: formState.attachment_filter
+            keep_audio: formState.keep_audio,
+            keep_subtitles: formState.keep_subtitles,
+            filter_attachments: formState.filter_attachments
         }
 
         const requestData = {
             track_order: formState.track_order,
-            audio_language_preference: formState.audio_language_preference,
-            subtitle_language_preference: formState.subtitle_language_preference,
+            audio_languages: formState.audio_languages,
+            subtitle_languages: formState.subtitle_languages,
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
             transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
             // V3-V10 fields (036-v9-policy-editor)
-            audio_filter: filtersConfig.audio_filter,
-            subtitle_filter: filtersConfig.subtitle_filter,
-            attachment_filter: filtersConfig.attachment_filter,
+            keep_audio: filtersConfig.keep_audio,
+            keep_subtitles: filtersConfig.keep_subtitles,
+            filter_attachments: filtersConfig.filter_attachments,
             container: containerController ? containerController.getConfig() : formState.container,
-            conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
+            rules: conditionalController ? conditionalController.getConfig() : formState.rules,
             audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
             workflow: workflowController ? workflowController.getConfig() : formState.workflow,
             // V11 fields (037-user-defined-phases)
@@ -1143,25 +1143,25 @@ function announceToScreenReader(message) {
 
         // Get filter configs from controller if available
         const filtersConfigForTest = filtersController ? filtersController.getConfig() : {
-            audio_filter: formState.audio_filter,
-            subtitle_filter: formState.subtitle_filter,
-            attachment_filter: formState.attachment_filter
+            keep_audio: formState.keep_audio,
+            keep_subtitles: formState.keep_subtitles,
+            filter_attachments: formState.filter_attachments
         }
 
         const requestData = {
             track_order: formState.track_order,
-            audio_language_preference: formState.audio_language_preference,
-            subtitle_language_preference: formState.subtitle_language_preference,
+            audio_languages: formState.audio_languages,
+            subtitle_languages: formState.subtitle_languages,
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
             transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
             // V3-V10 fields (036-v9-policy-editor)
-            audio_filter: filtersConfigForTest.audio_filter,
-            subtitle_filter: filtersConfigForTest.subtitle_filter,
-            attachment_filter: filtersConfigForTest.attachment_filter,
+            keep_audio: filtersConfigForTest.keep_audio,
+            keep_subtitles: filtersConfigForTest.keep_subtitles,
+            filter_attachments: filtersConfigForTest.filter_attachments,
             container: containerController ? containerController.getConfig() : formState.container,
-            conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
+            rules: conditionalController ? conditionalController.getConfig() : formState.rules,
             audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
             workflow: workflowController ? workflowController.getConfig() : formState.workflow,
             // V11 fields (037-user-defined-phases)
@@ -1518,15 +1518,15 @@ function announceToScreenReader(message) {
 
         // Initialize filters section (US5)
         filtersController = initFiltersSection(window.POLICY_DATA, (filtersConfig) => {
-            formState.audio_filter = filtersConfig.audio_filter
-            formState.subtitle_filter = filtersConfig.subtitle_filter
-            formState.attachment_filter = filtersConfig.attachment_filter
+            formState.keep_audio = filtersConfig.keep_audio
+            formState.keep_subtitles = filtersConfig.keep_subtitles
+            formState.filter_attachments = filtersConfig.filter_attachments
             markDirty()
         })
 
         // Initialize conditional section (US4)
         conditionalController = initConditionalSection(window.POLICY_DATA, (conditionalConfig) => {
-            formState.conditional = conditionalConfig
+            formState.rules = conditionalConfig
             markDirty()
         })
 

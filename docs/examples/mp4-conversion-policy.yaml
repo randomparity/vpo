@@ -8,40 +8,41 @@
 # - PGS or VobSub subtitles
 # - Embedded fonts/attachments
 
-schema_version: 3
+schema_version: 13
 
-# Track type ordering
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+config:
+  audio_languages: [eng, und]
+  subtitle_languages: [eng]
+  on_error: continue
 
-# Language preferences
-audio_language_preference:
-  - eng
-  - und
+phases:
+  - name: strip
+    # Remove attachments (not supported in MP4)
+    filter_attachments:
+      remove_all: true
 
-subtitle_language_preference:
-  - eng
+  - name: convert
+    # Container conversion to MP4
+    container:
+      target: mp4
+      # Skip files with incompatible codecs instead of failing
+      on_incompatible_codec: skip
 
-# Default flag behavior
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+  - name: organize
+    # Track type ordering
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+      - attachment
 
-# V3: Container conversion to MP4
-container:
-  target: mp4
-  # Skip files with incompatible codecs instead of failing
-  on_incompatible_codec: skip
-
-# V3: Remove attachments (not supported in MP4)
-attachment_filter:
-  remove_all: true
+    # Default flag behavior
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true

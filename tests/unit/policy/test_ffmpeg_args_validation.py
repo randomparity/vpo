@@ -17,7 +17,7 @@ class TestFfmpegArgsValidation:
         """Valid FFmpeg arguments are accepted."""
         expected_args = ["-max_muxing_queue_size", "9999", "-preset", "slow"]
         model = VideoTranscodeConfigModel(
-            target_codec="hevc",
+            to="hevc",
             ffmpeg_args=expected_args,
         )
         assert model.ffmpeg_args == expected_args
@@ -25,7 +25,7 @@ class TestFfmpegArgsValidation:
     def test_none_args_pass(self):
         """None ffmpeg_args is accepted."""
         model = VideoTranscodeConfigModel(
-            target_codec="hevc",
+            to="hevc",
             ffmpeg_args=None,
         )
         assert model.ffmpeg_args is None
@@ -33,7 +33,7 @@ class TestFfmpegArgsValidation:
     def test_empty_list_pass(self):
         """Empty list is accepted."""
         model = VideoTranscodeConfigModel(
-            target_codec="hevc",
+            to="hevc",
             ffmpeg_args=[],
         )
         assert model.ffmpeg_args == []
@@ -57,7 +57,7 @@ class TestFfmpegArgsValidation:
         """Each forbidden shell metacharacter is rejected."""
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=[f"-flag{pattern}value"],
             )
         assert "forbidden character" in str(exc_info.value).lower()
@@ -66,7 +66,7 @@ class TestFfmpegArgsValidation:
         """Semicolon (command separator) is rejected."""
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["-preset", "slow; rm -rf /"],
             )
         assert "forbidden character" in str(exc_info.value).lower()
@@ -75,7 +75,7 @@ class TestFfmpegArgsValidation:
         """Pipe character is rejected."""
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["-vf", "scale=1920:1080|crop=100:100"],
             )
         assert "forbidden character" in str(exc_info.value).lower()
@@ -84,7 +84,7 @@ class TestFfmpegArgsValidation:
         """Command substitution $() is rejected."""
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["-metadata", "title=$(whoami)"],
             )
         assert "forbidden character" in str(exc_info.value).lower()
@@ -93,7 +93,7 @@ class TestFfmpegArgsValidation:
         """Backtick command substitution is rejected."""
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["-metadata", "title=`whoami`"],
             )
         assert "forbidden character" in str(exc_info.value).lower()
@@ -103,7 +103,7 @@ class TestFfmpegArgsValidation:
         too_many_args = ["-flag"] * (MAX_FFMPEG_ARGS_COUNT + 1)
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=too_many_args,
             )
         assert "count exceeds limit" in str(exc_info.value).lower()
@@ -112,7 +112,7 @@ class TestFfmpegArgsValidation:
         """Argument count at exactly the limit is accepted."""
         args_at_limit = ["-flag"] * MAX_FFMPEG_ARGS_COUNT
         model = VideoTranscodeConfigModel(
-            target_codec="hevc",
+            to="hevc",
             ffmpeg_args=args_at_limit,
         )
         assert len(model.ffmpeg_args) == MAX_FFMPEG_ARGS_COUNT
@@ -122,7 +122,7 @@ class TestFfmpegArgsValidation:
         long_arg = "x" * (MAX_FFMPEG_ARG_LENGTH + 1)
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=[long_arg],
             )
         assert "length limit" in str(exc_info.value).lower()
@@ -131,7 +131,7 @@ class TestFfmpegArgsValidation:
         """Argument at exactly the length limit is accepted."""
         arg_at_limit = "x" * MAX_FFMPEG_ARG_LENGTH
         model = VideoTranscodeConfigModel(
-            target_codec="hevc",
+            to="hevc",
             ffmpeg_args=[arg_at_limit],
         )
         assert len(model.ffmpeg_args[0]) == MAX_FFMPEG_ARG_LENGTH
@@ -140,7 +140,7 @@ class TestFfmpegArgsValidation:
         """Non-string arguments are rejected."""
         with pytest.raises(ValidationError) as exc_info:
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["-preset", 123],  # type: ignore
             )
         # Pydantic catches this as a type error before our validator runs
@@ -149,7 +149,7 @@ class TestFfmpegArgsValidation:
     def test_multiple_valid_args(self):
         """Multiple valid arguments work correctly."""
         model = VideoTranscodeConfigModel(
-            target_codec="hevc",
+            to="hevc",
             ffmpeg_args=[
                 "-max_muxing_queue_size",
                 "9999",
@@ -165,12 +165,12 @@ class TestFfmpegArgsValidation:
         """Redirect operators > and < are rejected."""
         with pytest.raises(ValidationError):
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["-y", "> /tmp/output.txt"],
             )
 
         with pytest.raises(ValidationError):
             VideoTranscodeConfigModel(
-                target_codec="hevc",
+                to="hevc",
                 ffmpeg_args=["< /etc/passwd"],
             )

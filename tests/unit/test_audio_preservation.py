@@ -1,6 +1,6 @@
 """Unit tests for audio preservation during video transcoding (US8).
 
-Tests the AudioTranscodeConfig dataclass and preserve_codecs matching logic.
+Tests the AudioTranscodeConfig dataclass and preserve (codec matching) logic.
 """
 
 import pytest
@@ -32,49 +32,49 @@ class TestAudioTranscodeConfigDataclass:
         """AudioTranscodeConfig has sensible defaults for lossless preservation."""
         config = AudioTranscodeConfig()
 
-        assert config.preserve_codecs == ("truehd", "dts-hd", "flac", "pcm_s24le")
-        assert config.transcode_to == "aac"
-        assert config.transcode_bitrate == "192k"
+        assert config.preserve == ("truehd", "dts-hd", "flac", "pcm_s24le")
+        assert config.to == "aac"
+        assert config.bitrate == "192k"
 
-    def test_custom_preserve_codecs(self) -> None:
-        """AudioTranscodeConfig accepts custom preserve_codecs list."""
+    def test_custom_preserve(self) -> None:
+        """AudioTranscodeConfig accepts custom preserve list."""
         config = AudioTranscodeConfig(
-            preserve_codecs=("truehd", "dts-hd ma", "flac", "pcm_s16le", "pcm_s24le"),
-            transcode_to="eac3",
-            transcode_bitrate="640k",
+            preserve=("truehd", "dts-hd ma", "flac", "pcm_s16le", "pcm_s24le"),
+            to="eac3",
+            bitrate="640k",
         )
 
-        assert "truehd" in config.preserve_codecs
-        assert "dts-hd ma" in config.preserve_codecs
-        assert config.transcode_to == "eac3"
-        assert config.transcode_bitrate == "640k"
+        assert "truehd" in config.preserve
+        assert "dts-hd ma" in config.preserve
+        assert config.to == "eac3"
+        assert config.bitrate == "640k"
 
-    def test_invalid_transcode_to_codec(self) -> None:
-        """AudioTranscodeConfig rejects invalid transcode_to codec."""
-        with pytest.raises(ValueError, match="Invalid transcode_to"):
-            AudioTranscodeConfig(transcode_to="invalid_codec")
+    def test_invalid_to_codec(self) -> None:
+        """AudioTranscodeConfig rejects invalid target codec."""
+        with pytest.raises(ValueError, match="Invalid target codec"):
+            AudioTranscodeConfig(to="invalid_codec")
 
     def test_invalid_bitrate_format(self) -> None:
         """AudioTranscodeConfig rejects invalid bitrate format."""
-        with pytest.raises(ValueError, match="Invalid transcode_bitrate"):
-            AudioTranscodeConfig(transcode_bitrate="invalid")
+        with pytest.raises(ValueError, match="Invalid bitrate"):
+            AudioTranscodeConfig(bitrate="invalid")
 
     def test_valid_audio_codecs(self) -> None:
         """All common audio codecs can be used as transcode target."""
         valid_targets = ["aac", "ac3", "eac3", "flac", "opus", "mp3"]
         for codec in valid_targets:
-            config = AudioTranscodeConfig(transcode_to=codec)
-            assert config.transcode_to == codec
+            config = AudioTranscodeConfig(to=codec)
+            assert config.to == codec
 
     def test_immutable(self) -> None:
         """AudioTranscodeConfig is frozen/immutable."""
         config = AudioTranscodeConfig()
         with pytest.raises(AttributeError):
-            config.transcode_to = "ac3"  # type: ignore[misc]
+            config.to = "ac3"  # type: ignore[misc]
 
 
 class TestPreserveCodecsMatching:
-    """T033: Unit tests for preserve_codecs matching."""
+    """T033: Unit tests for preserve (codec matching) logic."""
 
     def test_exact_codec_match(self) -> None:
         """Exact codec name matches."""
@@ -119,7 +119,7 @@ class TestShouldPreserveCodec:
     """Additional tests for should_preserve_codec function."""
 
     def test_preserve_lossless_by_default(self) -> None:
-        """Default preserve_codecs list includes common lossless codecs."""
+        """Default preserve list includes common lossless codecs."""
         default_preserve = ("truehd", "dts-hd", "flac", "pcm_s24le")
 
         assert should_preserve_codec("truehd", default_preserve) is True
@@ -168,7 +168,7 @@ class TestAudioTrackPlanning:
         )
 
     def test_lossless_track_is_copied(self) -> None:
-        """Lossless audio track with codec in preserve_codecs is copied."""
+        """Lossless audio track with codec in preserve list is copied."""
         track = self._make_audio_track(1, "truehd", channels=8, channel_layout="7.1")
         preserve_codecs = ("truehd", "dts-hd", "flac")
 
@@ -176,7 +176,7 @@ class TestAudioTrackPlanning:
         assert should_preserve_codec(track.codec, preserve_codecs) is True
 
     def test_lossy_track_is_transcoded(self) -> None:
-        """Lossy audio track not in preserve_codecs is transcoded."""
+        """Lossy audio track not in preserve list is transcoded."""
         track = self._make_audio_track(2, "ac3", channels=6, channel_layout="5.1")
         preserve_codecs = ("truehd", "dts-hd", "flac")
 

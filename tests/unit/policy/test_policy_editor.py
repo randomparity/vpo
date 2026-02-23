@@ -20,12 +20,12 @@ def create_test_policy(
     path: Path, with_unknown_fields: bool = False, with_comments: bool = False
 ):
     """Helper to create test policy files."""
-    content = """schema_version: 12
+    content = """schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
   commentary_patterns:
@@ -45,13 +45,13 @@ phases:
 """
 
     if with_comments:
-        content = """schema_version: 12
+        content = """schema_version: 13
 config:
   # Audio preferences
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
   commentary_patterns:
@@ -85,10 +85,10 @@ def test_load_valid_policy(tmp_path):
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
-    assert data["schema_version"] == 12
+    assert data["schema_version"] == 13
     assert "phases" in data
     assert "config" in data
-    assert data["config"]["audio_language_preference"] == ["eng", "und"]
+    assert data["config"]["audio_languages"] == ["eng", "und"]
     assert data["phases"][0]["track_order"] == [
         "video",
         "audio_main",
@@ -125,14 +125,14 @@ def test_save_updates_file(tmp_path):
     data = editor.load()
 
     # Update audio language preference
-    data["config"]["audio_language_preference"] = ["jpn", "eng", "und"]
+    data["config"]["audio_languages"] = ["jpn", "eng", "und"]
     editor.save(data)
 
     # Reload and verify
     editor2 = PolicyRoundTripEditor(policy_file)
     reloaded = editor2.load()
 
-    assert reloaded["config"]["audio_language_preference"] == ["jpn", "eng", "und"]
+    assert reloaded["config"]["audio_languages"] == ["jpn", "eng", "und"]
 
 
 def test_save_preserves_unknown_fields(tmp_path):
@@ -147,7 +147,7 @@ def test_save_preserves_unknown_fields(tmp_path):
     assert data["x_custom_field"] == "preserved_value"
 
     # Update a known field
-    data["config"]["audio_language_preference"] = ["fra", "eng"]
+    data["config"]["audio_languages"] = ["fra", "eng"]
     editor.save(data)
 
     # Reload and verify unknown field still exists
@@ -155,7 +155,7 @@ def test_save_preserves_unknown_fields(tmp_path):
     reloaded = editor2.load()
 
     assert reloaded["x_custom_field"] == "preserved_value"
-    assert reloaded["config"]["audio_language_preference"] == ["fra", "eng"]
+    assert reloaded["config"]["audio_languages"] == ["fra", "eng"]
 
 
 @pytest.mark.skip(
@@ -170,7 +170,7 @@ def test_save_preserves_comments(tmp_path):
     data = editor.load()
 
     # Update audio language preference (leaving others unchanged)
-    data["audio_language_preference"] = ["deu", "eng"]
+    data["audio_languages"] = ["deu", "eng"]
     editor.save(data)
 
     # Read raw file content
@@ -205,7 +205,7 @@ def test_save_invalid_language_code(tmp_path):
     data = editor.load()
 
     # Invalid language code format
-    data["config"]["audio_language_preference"] = ["invalid123"]
+    data["config"]["audio_languages"] = ["invalid123"]
 
     with pytest.raises(PolicyValidationError, match="validation failed"):
         editor.save(data)
@@ -230,35 +230,35 @@ def test_save_multiple_times(tmp_path):
 
     # First save
     data = editor.load()
-    data["config"]["audio_language_preference"] = ["jpn"]
+    data["config"]["audio_languages"] = ["jpn"]
     editor.save(data)
 
     # Second save
     data = editor.load()
-    data["config"]["audio_language_preference"] = ["fra", "eng"]
+    data["config"]["audio_languages"] = ["fra", "eng"]
     editor.save(data)
 
     # Third save
     data = editor.load()
-    data["config"]["subtitle_language_preference"] = ["deu"]
+    data["config"]["subtitle_languages"] = ["deu"]
     editor.save(data)
 
     # Verify final state
     final_editor = PolicyRoundTripEditor(policy_file)
     final_data = final_editor.load()
 
-    assert final_data["config"]["audio_language_preference"] == ["fra", "eng"]
-    assert final_data["config"]["subtitle_language_preference"] == ["deu"]
+    assert final_data["config"]["audio_languages"] == ["fra", "eng"]
+    assert final_data["config"]["subtitle_languages"] == ["deu"]
 
 
 def test_load_policy_with_transcode(tmp_path):
     """Test loading policy with transcode section."""
     policy_file = tmp_path / "transcode.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -274,34 +274,32 @@ phases:
       clear_other_defaults: true
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 23
+        to: hevc
+        crf: 23
       audio:
-        preserve_codecs:
+        preserve:
           - aac
           - opus
-        transcode_to: aac
-        transcode_bitrate: 192k
+        to: aac
+        bitrate: 192k
 """)
 
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
     assert "transcode" in data["phases"][0]
-    assert data["phases"][0]["transcode"]["video"]["target_codec"] == "hevc"
-    assert data["phases"][0]["transcode"]["video"]["quality"]["crf"] == 23
+    assert data["phases"][0]["transcode"]["video"]["to"] == "hevc"
+    assert data["phases"][0]["transcode"]["video"]["crf"] == 23
 
 
 def test_save_preserves_transcode(tmp_path):
     """Test save preserves transcode section."""
     policy_file = tmp_path / "transcode.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -317,40 +315,38 @@ phases:
       clear_other_defaults: true
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 23
+        to: hevc
+        crf: 23
       audio:
-        preserve_codecs:
+        preserve:
           - aac
-        transcode_to: aac
-        transcode_bitrate: 192k
+        to: aac
+        bitrate: 192k
 """)
 
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
-    # Update audio language preference
-    data["config"]["audio_language_preference"] = ["jpn", "eng"]
+    # Update audio languages
+    data["config"]["audio_languages"] = ["jpn", "eng"]
     editor.save(data)
 
     # Reload and verify transcode preserved
     editor2 = PolicyRoundTripEditor(policy_file)
     reloaded = editor2.load()
 
-    assert reloaded["phases"][0]["transcode"]["video"]["target_codec"] == "hevc"
-    assert reloaded["config"]["audio_language_preference"] == ["jpn", "eng"]
+    assert reloaded["phases"][0]["transcode"]["video"]["to"] == "hevc"
+    assert reloaded["config"]["audio_languages"] == ["jpn", "eng"]
 
 
 def test_load_policy_with_transcription(tmp_path):
     """Test loading policy with transcription section."""
     policy_file = tmp_path / "transcription.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -398,7 +394,7 @@ def test_path_traversal_protection(tmp_path):
     # Test 1: Valid path within allowed directory should work
     editor = PolicyRoundTripEditor(policy_file, allowed_dir=allowed_dir)
     data = editor.load()
-    assert data["schema_version"] == 12
+    assert data["schema_version"] == 13
 
     # Test 2: Path outside allowed directory should be rejected
     with pytest.raises(ValueError, match="outside allowed directory"):
@@ -432,9 +428,9 @@ def test_yaml_safe_mode_blocks_dangerous_objects(tmp_path):
 
     # Attempt to create a malicious YAML file with Python object execution
     # This would execute arbitrary code if safe mode is not enabled
-    malicious_content = """schema_version: 12
+    malicious_content = """schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 phases:
   - name: test
@@ -461,9 +457,9 @@ def test_no_path_restriction_when_allowed_dir_not_provided(tmp_path):
     # Should work without allowed_dir parameter
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
-    assert data["schema_version"] == 12
+    assert data["schema_version"] == 13
 
     # Should also work with allowed_dir=None explicitly
     editor2 = PolicyRoundTripEditor(policy_file, allowed_dir=None)
     data2 = editor2.load()
-    assert data2["schema_version"] == 12
+    assert data2["schema_version"] == 13

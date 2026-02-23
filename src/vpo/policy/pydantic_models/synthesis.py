@@ -147,7 +147,7 @@ class SynthesisTrackDefinitionModel(BaseModel):
     channels: str | int
     source: SourcePreferencesModel
     bitrate: str | None = None
-    create_if: "ConditionModel | None" = None
+    create_if: "str | ConditionModel | None" = None
     skip_if_exists: SkipIfExistsModel | None = None
     title: str | Literal["inherit"] = "inherit"
     language: str | Literal["inherit"] = "inherit"

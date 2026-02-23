@@ -77,7 +77,7 @@ def make_policy():
         if phases is None:
             phases = [PhaseDefinition(name="default")]
         return PolicySchema(
-            schema_version=12,
+            schema_version=13,
             config=GlobalConfig(on_error=on_error),
             phases=tuple(phases),
         )
@@ -526,7 +526,7 @@ class TestSkipConditions:
         phases = [
             PhaseDefinition(
                 name="transcode",
-                skip_when=PhaseSkipCondition(video_codec=("hevc", "h265")),
+                skip_when=PhaseSkipCondition(mode="any", video_codec=("hevc", "h265")),
             ),
         ]
         policy = make_policy(phases=phases)
@@ -639,7 +639,7 @@ class TestSkipConditions:
             PhaseDefinition(
                 name="phase2",
                 depends_on=("phase1",),
-                skip_when=PhaseSkipCondition(video_codec=("h264",)),
+                skip_when=PhaseSkipCondition(mode="any", video_codec=("h264",)),
             ),
         ]
         policy = make_policy(phases=phases, on_error=OnErrorMode.CONTINUE)

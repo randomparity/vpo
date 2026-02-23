@@ -81,9 +81,9 @@ def quality_crf_20() -> QualitySettings:
 def audio_config_preserve_lossless() -> AudioTranscodeConfig:
     """Audio config that preserves lossless codecs."""
     return AudioTranscodeConfig(
-        preserve_codecs=("truehd", "dts-hd", "flac"),
-        transcode_to="aac",
-        transcode_bitrate="192k",
+        preserve=("truehd", "dts-hd", "flac"),
+        to="aac",
+        bitrate="192k",
     )
 
 

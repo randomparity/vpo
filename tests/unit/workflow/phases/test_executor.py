@@ -53,8 +53,8 @@ class MockFileInfo:
 def global_config():
     """Create a GlobalConfig for testing."""
     return GlobalConfig(
-        audio_language_preference=("eng", "und"),
-        subtitle_language_preference=("eng",),
+        audio_languages=("eng", "und"),
+        subtitle_languages=("eng",),
         commentary_patterns=("commentary", "director"),
         on_error=OnErrorMode.CONTINUE,
     )
@@ -64,7 +64,7 @@ def global_config():
 def phased_policy(global_config):
     """Create a phased policy for testing."""
     return PolicySchema(
-        schema_version=12,
+        schema_version=13,
         config=global_config,
         phases=(PhaseDefinition(name="cleanup"),),
     )
@@ -203,7 +203,7 @@ class TestOperationDispatch:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -387,7 +387,7 @@ class TestDryRunMode:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -546,14 +546,14 @@ class TestPhaseExecution:
 
         phase = PhaseDefinition(
             name="multi-op",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
-            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
+            keep_subtitles=SubtitleFilterConfig(languages=("eng",)),
         )
         result = executor.execute_phase(phase, mock_file_info.path, mock_file_info)
 
         assert result.success is True
         # Filters are consolidated: one execute_with_plan() call for both
-        # audio_filter and subtitle_filter, so 2 changes total (1 action + 1 removed).
+        # keep_audio and keep_subtitles, so 2 changes total (1 action + 1 removed).
         # The second filter dispatch returns 0 (already executed).
         assert result.changes_made == 2
         assert len(result.operations_executed) == 2
@@ -563,13 +563,13 @@ class TestPhaseExecution:
     ):
         """Phase skips remaining operations when on_error=skip."""
         skip_config = GlobalConfig(
-            audio_language_preference=global_config.audio_language_preference,
-            subtitle_language_preference=global_config.subtitle_language_preference,
+            audio_languages=global_config.audio_languages,
+            subtitle_languages=global_config.subtitle_languages,
             commentary_patterns=global_config.commentary_patterns,
             on_error=OnErrorMode.SKIP,
         )
         policy = PolicySchema(
-            schema_version=12,
+            schema_version=13,
             config=skip_config,
             phases=(PhaseDefinition(name="test"),),
         )
@@ -577,8 +577,8 @@ class TestPhaseExecution:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
-            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
+            keep_subtitles=SubtitleFilterConfig(languages=("eng",)),
         )
 
         # Make consolidated filter execution fail
@@ -598,13 +598,13 @@ class TestPhaseExecution:
     ):
         """Phase raises PhaseExecutionError when on_error=fail."""
         fail_config = GlobalConfig(
-            audio_language_preference=global_config.audio_language_preference,
-            subtitle_language_preference=global_config.subtitle_language_preference,
+            audio_languages=global_config.audio_languages,
+            subtitle_languages=global_config.subtitle_languages,
             commentary_patterns=global_config.commentary_patterns,
             on_error=OnErrorMode.FAIL,
         )
         policy = PolicySchema(
-            schema_version=12,
+            schema_version=13,
             config=fail_config,
             phases=(PhaseDefinition(name="test"),),
         )
@@ -612,7 +612,7 @@ class TestPhaseExecution:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         # Make consolidated filter execution fail
@@ -803,7 +803,7 @@ class TestExecuteTranscode:
 
         phase = PhaseDefinition(
             name="compress",
-            transcode=VideoTranscodeConfig(target_codec="hevc"),
+            transcode=VideoTranscodeConfig(to="hevc"),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -812,9 +812,9 @@ class TestExecuteTranscode:
         assert result == 1
         mock_executor.execute.assert_called_once_with(
             mock_plan,
-            quality=None,
+            video_config=phase.transcode,
             target_codec="hevc",
-            scale_algorithm=None,
+            scale_algorithm="lanczos",
             ffmpeg_args=None,
         )
 
@@ -841,7 +841,7 @@ class TestExecuteTranscode:
 
         phase = PhaseDefinition(
             name="compress",
-            transcode=VideoTranscodeConfig(target_codec="hevc"),
+            transcode=VideoTranscodeConfig(to="hevc"),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -869,7 +869,7 @@ class TestExecuteTranscode:
 
         phase = PhaseDefinition(
             name="compress",
-            transcode=VideoTranscodeConfig(target_codec="hevc"),
+            transcode=VideoTranscodeConfig(to="hevc"),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -898,7 +898,7 @@ class TestExecuteTranscode:
 
             phase = PhaseDefinition(
                 name="compress",
-                transcode=VideoTranscodeConfig(target_codec="hevc"),
+                transcode=VideoTranscodeConfig(to="hevc"),
             )
             state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -924,7 +924,7 @@ class TestExecuteTranscode:
 
         phase = PhaseDefinition(
             name="compress",
-            transcode=VideoTranscodeConfig(target_codec="hevc"),
+            transcode=VideoTranscodeConfig(to="hevc"),
         )
         state = PhaseExecutionState(file_path=test_file, phase=phase)
 
@@ -1099,9 +1099,9 @@ class TestFilterConsolidation:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
-            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
-            attachment_filter=AttachmentFilterConfig(remove_all=True),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
+            keep_subtitles=SubtitleFilterConfig(languages=("eng",)),
+            filter_attachments=AttachmentFilterConfig(remove_all=True),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -1130,7 +1130,7 @@ class TestFilterConsolidation:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
@@ -1149,7 +1149,7 @@ class TestFilterConsolidation:
 
         phase = PhaseDefinition(
             name="test",
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
         state.filters_executed = True  # Pre-set the flag

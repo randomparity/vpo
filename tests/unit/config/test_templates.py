@@ -127,7 +127,7 @@ class TestTemplates:
 
     def test_policy_template_has_schema_version(self):
         """Test default policy has schema version."""
-        assert "schema_version: 12" in DEFAULT_POLICY_TEMPLATE
+        assert "schema_version: 13" in DEFAULT_POLICY_TEMPLATE
 
     def test_policy_template_has_track_order(self):
         """Test default policy has track order."""
@@ -137,8 +137,8 @@ class TestTemplates:
 
     def test_policy_template_has_language_prefs(self):
         """Test default policy has language preferences."""
-        assert "audio_language_preference:" in DEFAULT_POLICY_TEMPLATE
-        assert "subtitle_language_preference:" in DEFAULT_POLICY_TEMPLATE
+        assert "audio_languages:" in DEFAULT_POLICY_TEMPLATE
+        assert "subtitle_languages:" in DEFAULT_POLICY_TEMPLATE
         assert "- eng" in DEFAULT_POLICY_TEMPLATE
 
     def test_policy_template_has_default_flags(self):
@@ -164,7 +164,7 @@ class TestTemplates:
         result = _parse_policy_file(policy_path)
 
         assert result.parse_error is None, f"Template parse error: {result.parse_error}"
-        assert result.schema_version == 12
+        assert result.schema_version == 13
         assert result.audio_languages == ["eng", "und"]
         assert result.subtitle_languages == ["eng", "und"]
 
@@ -408,7 +408,7 @@ class TestWriteDefaultPolicy:
         policy_path = temp_dir / "policies" / "default.yaml"
         assert policy_path.exists()
         content = policy_path.read_text()
-        assert "schema_version: 12" in content
+        assert "schema_version: 13" in content
 
     def test_creates_policies_directory(self, temp_dir: Path):
         """Test that policies directory is created."""
@@ -600,8 +600,9 @@ class TestRunInit:
         if os.geteuid() != 0:  # Skip if running as root
             result = run_init(Path("/root/vpo_test_rollback"))
             assert result.success is False
-            # Permission errors should be returned
-            assert "permission" in result.error.lower()
+            # Permission or inaccessible path errors should be returned
+            error_lower = result.error.lower()
+            assert "permission" in error_lower or "no accessible parent" in error_lower
 
     def test_rollback_cleans_created_files(self, temp_dir: Path):
         """Test that rollback actually removes created files."""

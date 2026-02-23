@@ -29,13 +29,13 @@ class TestValidationError:
     def test_to_dict_with_code(self):
         """Test serialization with error code."""
         error = ValidationError(
-            field="audio_language_preference[0]",
+            field="audio_languages[0]",
             message="Invalid language code",
             code="string_pattern_mismatch",
         )
         result = error.to_dict()
         assert result == {
-            "field": "audio_language_preference[0]",
+            "field": "audio_languages[0]",
             "message": "Invalid language code",
             "code": "string_pattern_mismatch",
         }
@@ -67,10 +67,10 @@ class TestValidationResult:
 
     def test_to_dict_success(self):
         """Test dict serialization for success."""
-        result = ValidationResult(success=True, policy={"schema_version": 12})
+        result = ValidationResult(success=True, policy={"schema_version": 13})
         d = result.to_dict()
         assert d["success"] is True
-        assert d["policy"] == {"schema_version": 12}
+        assert d["policy"] == {"schema_version": 13}
         assert "errors" not in d  # Empty errors should be excluded
 
     def test_to_dict_failure(self):
@@ -92,7 +92,7 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 12,
+                    "schema_version": 13,
                     "phases": [
                         {
                             "name": "test",
@@ -116,11 +116,9 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 12,
+                    "schema_version": 13,
                     "config": {
-                        "audio_language_preference": [
-                            "english"
-                        ],  # Invalid: not ISO 639-2
+                        "audio_languages": ["english"],  # Invalid: not ISO 639-2
                     },
                     "phases": [{"name": "test"}],
                 }
@@ -131,9 +129,7 @@ class TestFormatPydanticErrors:
 
         assert len(errors) >= 1
         # Find the language error
-        lang_error = next(
-            (e for e in errors if "audio_language_preference" in e.field), None
-        )
+        lang_error = next((e for e in errors if "audio_languages" in e.field), None)
         assert lang_error is not None
         # The index is included in the error message (index 0)
         assert "index 0" in lang_error.message or "[0]" in lang_error.field
@@ -143,10 +139,10 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 12,
+                    "schema_version": 13,
                     "config": {
-                        "audio_language_preference": ["invalid_lang_code"],  # Invalid
-                        "subtitle_language_preference": ["also_invalid"],  # Invalid
+                        "audio_languages": ["invalid_lang_code"],  # Invalid
+                        "subtitle_languages": ["also_invalid"],  # Invalid
                     },
                     "phases": [
                         {
@@ -168,9 +164,9 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 12,
+                    "schema_version": 13,
                     "config": {
-                        "audio_language_preference": ["toolongcode"],  # Invalid pattern
+                        "audio_languages": ["toolongcode"],  # Invalid pattern
                     },
                     "phases": [{"name": "test"}],
                 }
@@ -191,10 +187,10 @@ class TestValidatePolicyData:
     def test_valid_policy(self):
         """Test validation of valid policy data."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {
-                "audio_language_preference": ["eng", "jpn"],
-                "subtitle_language_preference": ["eng"],
+                "audio_languages": ["eng", "jpn"],
+                "subtitle_languages": ["eng"],
             },
             "phases": [
                 {
@@ -214,12 +210,12 @@ class TestValidatePolicyData:
         assert result.success is True
         assert len(result.errors) == 0
         assert result.policy is not None
-        assert result.policy["schema_version"] == 12
+        assert result.policy["schema_version"] == 13
 
     def test_invalid_empty_track_order(self):
         """Test validation fails for empty track_order."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -236,9 +232,9 @@ class TestValidatePolicyData:
     def test_invalid_language_code(self):
         """Test validation fails for invalid language code."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {
-                "audio_language_preference": ["english"],  # Invalid
+                "audio_languages": ["english"],  # Invalid
             },
             "phases": [{"name": "test"}],
         }
@@ -247,14 +243,14 @@ class TestValidatePolicyData:
         assert result.success is False
         # Should have error mentioning the language issue
         lang_error = next(
-            (e for e in result.errors if "audio_language_preference" in e.field), None
+            (e for e in result.errors if "audio_languages" in e.field), None
         )
         assert lang_error is not None
 
     def test_invalid_regex_pattern(self):
         """Test validation fails for invalid regex pattern."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {
                 "commentary_patterns": ["[invalid("],  # Invalid regex
             },
@@ -268,9 +264,9 @@ class TestValidatePolicyData:
     def test_empty_language_preference_accepted(self):
         """Test validation accepts empty language preference (uses defaults)."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {
-                "audio_language_preference": [],  # Empty - will use defaults
+                "audio_languages": [],  # Empty - will use defaults
             },
             "phases": [{"name": "test"}],
         }
@@ -293,20 +289,20 @@ class TestDiffSummary:
 
     def test_list_reorder(self):
         """Test detection of list reordering."""
-        old = {"audio_language_preference": ["eng", "jpn"]}
-        new = {"audio_language_preference": ["jpn", "eng"]}
+        old = {"audio_languages": ["eng", "jpn"]}
+        new = {"audio_languages": ["jpn", "eng"]}
         diff = DiffSummary.compare_policies(old, new)
 
         assert len(diff.changes) == 1
-        assert diff.changes[0].field == "audio_language_preference"
+        assert diff.changes[0].field == "audio_languages"
         assert diff.changes[0].change_type == "reordered"
         assert "eng, jpn" in diff.changes[0].details
         assert "jpn, eng" in diff.changes[0].details
 
     def test_list_items_added(self):
         """Test detection of items added to list."""
-        old = {"audio_language_preference": ["eng"]}
-        new = {"audio_language_preference": ["eng", "jpn"]}
+        old = {"audio_languages": ["eng"]}
+        new = {"audio_languages": ["eng", "jpn"]}
         diff = DiffSummary.compare_policies(old, new)
 
         assert len(diff.changes) == 1
@@ -315,8 +311,8 @@ class TestDiffSummary:
 
     def test_list_items_removed(self):
         """Test detection of items removed from list."""
-        old = {"audio_language_preference": ["eng", "jpn"]}
-        new = {"audio_language_preference": ["eng"]}
+        old = {"audio_languages": ["eng", "jpn"]}
+        new = {"audio_languages": ["eng"]}
         diff = DiffSummary.compare_policies(old, new)
 
         assert len(diff.changes) == 1
@@ -369,17 +365,17 @@ class TestDiffSummary:
         """Test summary text with multiple changes."""
         old = {
             "track_order": ["video", "audio_main"],
-            "audio_language_preference": ["eng"],
+            "audio_languages": ["eng"],
         }
         new = {
             "track_order": ["audio_main", "video"],
-            "audio_language_preference": ["eng", "jpn"],
+            "audio_languages": ["eng", "jpn"],
         }
         diff = DiffSummary.compare_policies(old, new)
 
         summary = diff.to_summary_text()
         assert "track_order" in summary
-        assert "audio_language_preference" in summary
+        assert "audio_languages" in summary
 
     def test_compare_with_commentary_patterns(self):
         """Test comparison of commentary_patterns field."""
@@ -404,7 +400,7 @@ class TestFieldChange:
     def test_to_dict_with_details(self):
         """Test serialization with details."""
         change = FieldChange(
-            field="audio_language_preference",
+            field="audio_languages",
             change_type="reordered",
             details="eng, jpn -> jpn, eng",
         )

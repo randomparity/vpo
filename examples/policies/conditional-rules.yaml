@@ -1,4 +1,4 @@
-# Conditional Rules Policy (V12)
+# Conditional Rules Policy (V13)
 # Advanced conditional logic with boolean operators
 #
 # Conditional rules evaluate conditions against the file's tracks and metadata,
@@ -24,13 +24,13 @@
 #
 # Usage:
 #   vpo policy run -p conditional-rules.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Smart Conditional Rules
 description: Force subtitles for foreign audio, skip transcode for compliant files, and set track defaults automatically.
 
 config:
-  audio_language_preference: [eng, jpn, und]
-  subtitle_language_preference: [eng, jpn]
+  audio_languages: [eng, jpn, und]
+  subtitle_languages: [eng, jpn]
 
   # "continue" keeps processing remaining phases even if one rule errors.
   # Useful for conditional policies where partial success is acceptable.
@@ -38,68 +38,70 @@ config:
 
 phases:
   - name: apply-rules
-    conditional:
-      # Rule 1: Force English subs when audio contains multiple languages.
-      # The threshold (0.05 = 5%) prevents tiny segments from triggering detection.
-      - name: force-subs-for-multi-language
-        when:
-          audio_is_multi_language:
-            threshold: 0.05  # Min fraction of total duration for a language to count
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-          - set_default:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        # Rule 1: Force English subs when audio contains multiple languages.
+        # The threshold (0.05 = 5%) prevents tiny segments from triggering detection.
+        - name: force-subs-for-multi-language
+          when:
+            audio_is_multi_language:
+              threshold: 0.05  # Min fraction of total duration for a language to count
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
+            - set_default:
+                track_type: subtitle
+                language: eng
+                value: true
 
-      # Rule 2: Force English subs when there's no English audio track.
-      # Uses "not > exists" to check for absence of a track type+language combo.
-      - name: force-subs-when-no-english-audio
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-
-      # Rule 3: Skip video transcoding if file is already HEVC with audio.
-      # Uses "and" to combine multiple conditions (all must be true).
-      - name: skip-transcode-for-compliant-files
-        when:
-          and:
-            - exists:
-                track_type: video
-                codec: [hevc, h265]
-            - count:
+        # Rule 2: Force English subs when there's no English audio track.
+        # Uses "not > exists" to check for absence of a track type+language combo.
+        - name: force-subs-when-no-english-audio
+          when:
+            not:
+              exists:
                 track_type: audio
-                gte: 1  # Ensure at least one audio track exists
-        then:
-          - skip_video_transcode: true
+                language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 
-      # Rule 4: Warn when a file has no subtitle tracks at all.
-      - name: warn-for-missing-subtitles
-        when:
-          not:
-            exists:
-              track_type: subtitle
-        then:
-          - warn: "No subtitle tracks found"
+        # Rule 3: Skip video transcoding if file is already HEVC with audio.
+        # Uses "and" to combine multiple conditions (all must be true).
+        - name: skip-transcode-for-compliant-files
+          when:
+            and:
+              - exists:
+                  track_type: video
+                  codec: [hevc, h265]
+              - count:
+                  track_type: audio
+                  gte: 1  # Ensure at least one audio track exists
+          then:
+            - skip_video_transcode: true
 
-      # Rule 5: Auto-set default flag when there's exactly one audio track.
-      # The "count" condition supports: eq, gte, lte, gt, lt operators.
-      - name: set-audio-default-if-single-track
-        when:
-          count:
-            track_type: audio
-            eq: 1
-        then:
-          - set_default:
+        # Rule 4: Warn when a file has no subtitle tracks at all.
+        - name: warn-for-missing-subtitles
+          when:
+            not:
+              exists:
+                track_type: subtitle
+          then:
+            - warn: "No subtitle tracks found"
+
+        # Rule 5: Auto-set default flag when there's exactly one audio track.
+        # The "count" condition supports: eq, gte, lte, gt, lt operators.
+        - name: set-audio-default-if-single-track
+          when:
+            count:
               track_type: audio
-              value: true
+              eq: 1
+          then:
+            - set_default:
+                track_type: audio
+                value: true

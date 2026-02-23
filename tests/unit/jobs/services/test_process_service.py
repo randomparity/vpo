@@ -42,10 +42,10 @@ def test_job_with_json(tmp_path):
     test_file.write_bytes(b"\x00" * 100)
 
     policy_data = {
-        "schema_version": 12,
+        "schema_version": 13,
         "config": {
-            "audio_language_preference": ["eng", "und"],
-            "subtitle_language_preference": ["eng", "und"],
+            "audio_languages": ["eng", "und"],
+            "subtitle_languages": ["eng", "und"],
             "on_error": "fail",
         },
         "phases": [
@@ -178,15 +178,15 @@ class TestProcessJobServiceParsing:
 
         assert error is None
         assert policy is not None
-        assert policy.schema_version == 12
+        assert policy.schema_version == 13
 
     def test_parse_policy_from_name(self, db_conn, tmp_path):
         """_parse_policy loads policy from file path."""
         # Create a real policy file with phased format
         policy_file = tmp_path / "test_policy.yaml"
-        policy_file.write_text("""schema_version: 12
+        policy_file.write_text("""schema_version: 13
 config:
-  audio_language_preference: [eng]
+  audio_languages: [eng]
 phases:
   - name: apply
 """)
@@ -210,7 +210,7 @@ phases:
 
         assert error is None
         assert policy is not None
-        assert policy.schema_version == 12
+        assert policy.schema_version == 13
 
     def test_parse_policy_missing_file_returns_error(self, db_conn, tmp_path):
         """_parse_policy returns error for missing policy file."""

@@ -30,46 +30,48 @@ def v4_conditional_policy(temp_dir: Path) -> Path:
     """Create a V4 policy file with conditional rules."""
     policy_path = temp_dir / "conditional-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
 
 phases:
   - name: apply
-    conditional:
-      - name: "4K HEVC passthrough"
-        when:
-          and:
-            - exists:
-                track_type: video
-                height: { gte: 2160 }
-            - exists:
-                track_type: video
-                codec: hevc
-        then:
-          - skip_video_transcode: true
-          - warn: "4K HEVC detected - skipping video transcode"
+    rules:
+      match: first
+      items:
+        - name: "4K HEVC passthrough"
+          when:
+            and:
+              - exists:
+                  track_type: video
+                  height: { gte: 2160 }
+              - exists:
+                  track_type: video
+                  codec: hevc
+          then:
+            - skip_video_transcode: true
+            - warn: "4K HEVC detected - skipping video transcode"
 
-      - name: "Single audio track"
-        when:
-          count:
-            track_type: audio
-            eq: 1
-        then:
-          - skip_track_filter: true
+        - name: "Single audio track"
+          when:
+            count:
+              track_type: audio
+              eq: 1
+          then:
+            - skip_track_filter: true
 
-      - name: "Default processing"
-        when:
-          exists:
-            track_type: video
-        then:
-          - warn: "Standard processing"
+        - name: "Default processing"
+          when:
+            exists:
+              track_type: video
+          then:
+            - warn: "Standard processing"
 
     default_flags:
       set_first_video_default: true
@@ -85,23 +87,25 @@ def v4_fail_policy(temp_dir: Path) -> Path:
     """Create a V4 policy file with fail action."""
     policy_path = temp_dir / "fail-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 
 phases:
   - name: apply
-    conditional:
-      - name: "Missing English audio"
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - fail: "{filename} has no English audio track"
+    rules:
+      match: first
+      items:
+        - name: "Missing English audio"
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - fail: "{filename} has no English audio track"
 """)
     return policy_path
 
@@ -111,25 +115,27 @@ def v4_track_filter_policy(temp_dir: Path) -> Path:
     """Create a V4 policy with conditional skip_track_filter."""
     policy_path = temp_dir / "track-filter-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 
 phases:
   - name: apply
-    conditional:
-      - name: "Skip filtering for single audio"
-        when:
-          count:
-            track_type: audio
-            eq: 1
-        then:
-          - skip_track_filter: true
-          - warn: "Single audio - skipping filter"
+    rules:
+      match: first
+      items:
+        - name: "Skip filtering for single audio"
+          when:
+            count:
+              track_type: audio
+              eq: 1
+          then:
+            - skip_track_filter: true
+            - warn: "Single audio - skipping filter"
 
-    audio_filter:
+    keep_audio:
       languages:
         - eng
       minimum: 1
@@ -246,13 +252,13 @@ class TestConditionalPolicyLoading:
         """V4 policy with conditional section should load correctly."""
         policy = load_policy(v4_conditional_policy)
 
-        assert policy.schema_version == 12
+        assert policy.schema_version == 13
         # Conditional rules are now in phases
-        assert policy.phases[0].conditional is not None
-        assert len(policy.phases[0].conditional) == 3
+        assert policy.phases[0].rules is not None
+        assert len(policy.phases[0].rules.items) == 3
 
         # Check first rule
-        rule1 = policy.phases[0].conditional[0]
+        rule1 = policy.phases[0].rules.items[0]
         assert rule1.name == "4K HEVC passthrough"
         assert len(rule1.then_actions) == 2
 
@@ -272,7 +278,7 @@ class TestConditionalRuleEvaluation:
         tracks = [video_track_4k_hevc, audio_track_eng, subtitle_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].conditional,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -302,7 +308,7 @@ class TestConditionalRuleEvaluation:
         ]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].conditional,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -326,7 +332,7 @@ class TestConditionalRuleEvaluation:
         tracks = [video_track_1080p_h264, audio_track_eng, subtitle_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].conditional,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -349,7 +355,7 @@ class TestConditionalRuleEvaluation:
         tracks = [video_track_1080p_h264, audio_track_eng, subtitle_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].conditional,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -377,7 +383,7 @@ class TestConditionalFailAction:
 
         with pytest.raises(ConditionalFailError) as exc_info:
             evaluate_conditional_rules(
-                rules=policy.phases[0].conditional,
+                rules=policy.phases[0].rules,
                 tracks=tracks,
                 file_path=Path("/test/anime.mkv"),
             )
@@ -397,7 +403,7 @@ class TestConditionalFailAction:
         tracks = [video_track_1080p_h264, audio_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].conditional,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -563,11 +569,11 @@ class TestEvaluatePolicyWithConditionals:
         """evaluate_policy should work with policy (no conditionals)."""
         policy_path = temp_dir / "no-conditionals-policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 phases:
   - name: apply
@@ -626,13 +632,13 @@ class TestConditionalPolicyFixtureLoading:
 
         policy = load_policy(fixture_path)
 
-        assert policy.schema_version == 12
+        assert policy.schema_version == 13
         # Conditional rules are in the first phase
-        assert policy.phases[0].conditional is not None
-        assert len(policy.phases[0].conditional) == 4
+        assert policy.phases[0].rules is not None
+        assert len(policy.phases[0].rules.items) == 4
 
         # Verify rule names
-        rule_names = [r.name for r in policy.phases[0].conditional]
+        rule_names = [r.name for r in policy.phases[0].rules.items]
         assert "4K HEVC passthrough" in rule_names
         assert "Single audio track" in rule_names
         assert "Missing English audio" in rule_names

@@ -308,13 +308,12 @@ def _policy_to_dict(policy, policy_path: Path) -> dict:
             phase_dict["target"] = target
         elif phase.transcode:
             phase_dict["type"] = "transcode"
-            if phase.transcode.video:
-                phase_dict["video_codec"] = phase.transcode.video.target_codec
-            if phase.transcode.audio:
+            phase_dict["video_codec"] = phase.transcode.to
+            if phase.audio_transcode:
                 phase_dict["audio_transcode"] = True
-        elif phase.conditional:
-            phase_dict["type"] = "conditional"
-            phase_dict["rules_count"] = len(phase.conditional)
+        elif phase.rules:
+            phase_dict["type"] = "rules"
+            phase_dict["rules_count"] = len(phase.rules.items)
         elif phase.audio_synthesis:
             phase_dict["type"] = "audio_synthesis"
         elif phase.metadata:
@@ -366,15 +365,15 @@ def _output_policy_human(policy, policy_path: Path) -> None:
                 details = ""
         elif phase.transcode:
             phase_type = "transcode"
-            details_parts = []
-            if phase.transcode.video:
-                details_parts.append(f"video: {phase.transcode.video.target_codec}")
-            if phase.transcode.audio:
+            details_parts = [f"video: {phase.transcode.to}"]
+            if phase.audio_transcode:
                 details_parts.append("audio: yes")
             details = ", ".join(details_parts)
-        elif phase.conditional:
-            phase_type = "conditional"
-            details = f"{len(phase.conditional)} rule(s)"
+        elif phase.rules:
+            phase_type = "rules"
+            details = (
+                f"{len(phase.rules.items)} rule(s), match: {phase.rules.match.value}"
+            )
         elif phase.audio_synthesis:
             phase_type = "audio_synthesis"
             details = f"{len(phase.audio_synthesis)} track(s)"

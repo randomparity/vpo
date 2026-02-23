@@ -201,12 +201,17 @@ class ActionModel(BaseModel):
 
 
 class ConditionalRuleModel(BaseModel):
-    """Pydantic model for a conditional rule."""
+    """Pydantic model for a conditional rule.
+
+    The ``when`` field accepts either an expression string (V13) or a
+    structured ConditionModel dict (backward-compatible). Expression
+    strings are validated at parse time for early error reporting.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    when: ConditionModel
+    when: str | ConditionModel
     then: ActionModel | list[ActionModel]
     else_: ActionModel | list[ActionModel] | None = Field(None, alias="else")
 
@@ -217,3 +222,42 @@ class ConditionalRuleModel(BaseModel):
         if not v or not v.strip():
             raise ValueError("Rule name cannot be empty")
         return v.strip()
+
+    @field_validator("when")
+    @classmethod
+    def validate_when_expression(cls, v: str | ConditionModel) -> str | ConditionModel:
+        """Validate expression string syntax early."""
+        if isinstance(v, str):
+            from vpo.policy.expressions import ParseError, parse_expression
+
+            try:
+                parse_expression(v)
+            except ParseError as e:
+                raise ValueError(f"Invalid expression: {e}") from e
+        return v
+
+
+class RulesBlockModel(BaseModel):
+    """Pydantic model for the rules block in a phase.
+
+    Wraps a list of conditional rules with an explicit match mode
+    that controls evaluation semantics.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    match: Literal["first", "all"]
+    """How rules are matched: 'first' (stop on first match) or 'all'."""
+
+    items: list[ConditionalRuleModel]
+    """Ordered list of conditional rules."""
+
+    @field_validator("items")
+    @classmethod
+    def validate_items_not_empty(
+        cls, v: list[ConditionalRuleModel]
+    ) -> list[ConditionalRuleModel]:
+        """Validate that items list is not empty."""
+        if not v:
+            raise ValueError("rules.items must have at least one rule")
+        return v

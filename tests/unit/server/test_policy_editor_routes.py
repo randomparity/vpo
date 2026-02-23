@@ -40,7 +40,7 @@ async def test_get_policy_schema_success(aiohttp_client, schema_test_app):
     # Verify response structure
     assert "schema_version" in data
     assert "json_schema" in data
-    assert data["schema_version"] == 12
+    assert data["schema_version"] == 13
 
     # Verify JSON schema structure
     schema = data["json_schema"]
@@ -86,14 +86,14 @@ async def policy_crud_app(tmp_path):
     policy_dir = tmp_path / "policies"
     policy_dir.mkdir()
 
-    # Create test policy with phases (required for V12 schema)
+    # Create test policy with phases (required for V13 schema)
     test_policy = policy_dir / "test.yaml"
-    test_policy.write_text("""schema_version: 12
+    test_policy.write_text("""schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
   commentary_patterns:
@@ -114,11 +114,11 @@ phases:
 
     # Create test policy with unknown fields to test preservation
     test_policy_unknown = policy_dir / "test-unknown.yaml"
-    test_policy_unknown.write_text("""schema_version: 12
+    test_policy_unknown.write_text("""schema_version: 13
 # This is a comment that should be preserved
 custom_unknown_field: preserved_value
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 phases:
   - name: apply
@@ -150,11 +150,11 @@ async def test_get_policy_for_editing_success(aiohttp_client, policy_crud_app):
 
     assert data["name"] == "test"
     assert data["filename"] == "test.yaml"
-    # V12 phased policy fields
+    # V13 phased policy fields
     assert "phases" in data
     assert "config" in data
     assert "last_modified" in data
-    assert data["schema_version"] == 12
+    assert data["schema_version"] == 13
 
 
 @pytest.mark.asyncio
@@ -182,10 +182,8 @@ async def test_put_policy_update_success(aiohttp_client, policy_crud_app):
     update_data = {
         "phases": policy_data["phases"],
         "config": policy_data["config"],
-        "audio_language_preference": ["jpn", "eng"],
-        "subtitle_language_preference": policy_data.get(
-            "subtitle_language_preference", []
-        ),
+        "audio_languages": ["jpn", "eng"],
+        "subtitle_languages": policy_data.get("subtitle_languages", []),
         "commentary_patterns": policy_data.get("commentary_patterns", []),
         "default_flags": policy_data.get("default_flags", {}),
         "track_order": policy_data.get("track_order", []),
@@ -215,10 +213,8 @@ async def test_put_policy_concurrent_modification(aiohttp_client, policy_crud_ap
     update_data = {
         "phases": policy_data["phases"],
         "config": policy_data["config"],
-        "audio_language_preference": ["fra", "eng"],
-        "subtitle_language_preference": policy_data.get(
-            "subtitle_language_preference", []
-        ),
+        "audio_languages": ["fra", "eng"],
+        "subtitle_languages": policy_data.get("subtitle_languages", []),
         "commentary_patterns": policy_data.get("commentary_patterns", []),
         "default_flags": policy_data.get("default_flags", {}),
         "track_order": policy_data.get("track_order", []),
@@ -232,7 +228,7 @@ async def test_put_policy_concurrent_modification(aiohttp_client, policy_crud_ap
     assert response1.status == 200
 
     # Try second update with stale timestamp
-    update_data["audio_language_preference"] = ["deu", "eng"]
+    update_data["audio_languages"] = ["deu", "eng"]
     # Keep the stale timestamp from original get
 
     response2 = await client.put("/api/policies/test", json=update_data)
@@ -271,10 +267,8 @@ async def test_validate_policy_without_saving(aiohttp_client, policy_crud_app):
     validate_data = {
         "phases": policy_data["phases"],
         "config": policy_data["config"],
-        "audio_language_preference": policy_data.get("audio_language_preference", []),
-        "subtitle_language_preference": policy_data.get(
-            "subtitle_language_preference", []
-        ),
+        "audio_languages": policy_data.get("audio_languages", []),
+        "subtitle_languages": policy_data.get("subtitle_languages", []),
         "commentary_patterns": policy_data.get("commentary_patterns", []),
         "default_flags": policy_data.get("default_flags", {}),
         "track_order": policy_data.get("track_order", []),

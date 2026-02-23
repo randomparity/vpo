@@ -1,10 +1,10 @@
 # Complete Phased Policy Fixture
 # Used to test all operation types across phases
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference: [eng, jpn, und]
-  subtitle_language_preference: [eng, jpn]
+  audio_languages: [eng, jpn, und]
+  subtitle_languages: [eng, jpn]
   commentary_patterns: [commentary, director, "audio description"]
   on_error: continue
 
@@ -14,15 +14,15 @@ phases:
       target: mkv
 
   - name: cleanup
-    audio_filter:
+    keep_audio:
       languages: [eng, jpn, und]
       minimum: 1
       fallback:
         mode: keep_first
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, jpn]
       preserve_forced: true
-    attachment_filter:
+    filter_attachments:
       remove_all: false
 
   - name: organize
@@ -37,18 +37,20 @@ phases:
     default_flags:
       set_first_video_default: true
       set_preferred_audio_default: true
-    conditional:
-      - name: force-subs-for-foreign
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        - name: force-subs-for-foreign
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 
   - name: enhance
     audio_synthesis:
@@ -68,25 +70,21 @@ phases:
   - name: transcode
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
         skip_if:
           codec_matches: [hevc, h265]
           resolution_within: 1080p
           bitrate_under: 15M
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        crf: 20
+        preset: medium
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs: [truehd, dts-hd, flac, aac]
-        transcode_to: aac
-        transcode_bitrate: 128k
+        preserve: [truehd, dts-hd, flac, aac]
+        to: aac
+        bitrate: 128k
 
   - name: analyze
     transcription:

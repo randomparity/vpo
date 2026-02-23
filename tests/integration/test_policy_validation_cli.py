@@ -119,13 +119,13 @@ class TestPolicyValidateErrors:
 
         assert result.exit_code == ExitCode.POLICY_VALIDATION_ERROR
         assert "Invalid" in result.output
-        assert "schema_version 12" in result.output.lower() or "12" in result.output
+        assert "schema_version 13" in result.output.lower() or "13" in result.output
 
     def test_missing_phases_key(self, tmp_path: Path) -> None:
         """Test validate with missing phases key."""
         runner = CliRunner()
         no_phases = tmp_path / "no_phases.yaml"
-        no_phases.write_text("schema_version: 12\nconfig:\n  on_error: skip\n")
+        no_phases.write_text("schema_version: 13\nconfig:\n  on_error: skip\n")
 
         result = runner.invoke(main, ["policy", "validate", str(no_phases)])
 
@@ -142,7 +142,7 @@ class TestPolicyValidateSuccess:
         runner = CliRunner()
         valid = tmp_path / "valid.yaml"
         valid.write_text(
-            "schema_version: 12\n"
+            "schema_version: 13\n"
             "phases:\n"
             "  - name: test\n"
             "    container:\n"
@@ -159,7 +159,7 @@ class TestPolicyValidateSuccess:
         runner = CliRunner()
         valid = tmp_path / "valid.yaml"
         valid.write_text(
-            "schema_version: 12\n"
+            "schema_version: 13\n"
             "phases:\n"
             "  - name: test\n"
             "    container:\n"

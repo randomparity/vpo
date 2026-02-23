@@ -1,57 +1,63 @@
 # Track Filtering Policy for Video Policy Orchestrator
-# This policy demonstrates v3 track filtering features.
+# This policy demonstrates V13 track filtering features.
 #
 # Usage: vpo process --policy track-filtering-policy.yaml [--dry-run] <file.mkv>
 
-schema_version: 3
+schema_version: 13
 
-# Track type ordering (first = top priority)
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+config:
+  # Preferred audio languages (ISO 639-2 codes)
+  audio_languages:
+    - eng  # English
+    - und  # Undefined/unknown
 
-# Preferred audio languages (ISO 639-2 codes)
-audio_language_preference:
-  - eng  # English
-  - und  # Undefined/unknown
+  # Preferred subtitle languages
+  subtitle_languages:
+    - eng
 
-# Preferred subtitle languages
-subtitle_language_preference:
-  - eng
+  # Patterns to identify commentary tracks
+  commentary_patterns:
+    - commentary
+    - director
 
-# Patterns to identify commentary tracks
-commentary_patterns:
-  - 'commentary'
-  - 'director'
+  on_error: continue
 
-# Default flag behavior
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+phases:
+  - name: filter
+    # Audio track filtering
+    # Removes audio tracks that don't match preferred languages
+    keep_audio:
+      languages:
+        - eng  # Keep English
+        - und  # Keep undefined (for files with missing tags)
+      minimum: 1  # At least one audio track must remain
+      fallback:
+        # If no English/und tracks found, keep the content language
+        mode: content_language
 
-# V3: Audio track filtering
-# Removes audio tracks that don't match preferred languages
-audio_filter:
-  languages:
-    - eng  # Keep English
-    - und  # Keep undefined (for files with missing tags)
-  minimum: 1  # At least one audio track must remain
-  fallback:
-    # If no English/und tracks found, keep the content language
-    mode: content_language
+    # Subtitle track filtering
+    # Removes subtitle tracks that don't match preferred languages
+    keep_subtitles:
+      languages:
+        - eng  # Keep only English subtitles
+      # Keep forced subtitles regardless of language (for foreign dialogue)
+      preserve_forced: true
 
-# V3: Subtitle track filtering
-# Removes subtitle tracks that don't match preferred languages
-subtitle_filter:
-  languages:
-    - eng  # Keep only English subtitles
-  # Keep forced subtitles regardless of language (for foreign dialogue)
-  preserve_forced: true
+  - name: organize
+    # Track type ordering (first = top priority)
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+      - attachment
+
+    # Default flag behavior
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true

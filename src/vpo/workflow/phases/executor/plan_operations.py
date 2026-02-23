@@ -260,9 +260,9 @@ def execute_filters(
         Number of changes made.
     """
     has_filter = (
-        state.phase.audio_filter
-        or state.phase.subtitle_filter
-        or state.phase.attachment_filter
+        state.phase.keep_audio
+        or state.phase.keep_subtitles
+        or state.phase.filter_attachments
     )
     if not has_filter:
         logger.warning(
@@ -314,7 +314,7 @@ def execute_conditional(
     tools: dict[str, bool],
 ) -> int:
     """Execute conditional rules operation."""
-    if not state.phase.conditional:
+    if not state.phase.rules:
         return 0
     return execute_with_plan(
         state, file_info, "conditional rules", conn, policy, dry_run, tools

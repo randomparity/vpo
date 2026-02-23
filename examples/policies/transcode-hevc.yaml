@@ -1,4 +1,4 @@
-# Simple HEVC Transcoding Policy (V12)
+# Simple HEVC Transcoding Policy (V13)
 # Minimal single-phase policy for video transcoding
 #
 # Converts video to HEVC (H.265) for better compression at equivalent quality.
@@ -6,7 +6,7 @@
 #
 # Usage:
 #   vpo policy run -p transcode-hevc.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Simple HEVC Transcode
 description: Single-phase HEVC transcoding capped at 1080p with sensible defaults.
 
@@ -17,7 +17,7 @@ phases:
   - name: compress
     transcode:
       video:
-        target_codec: hevc  # Also accepts: h264, av1
+        to: hevc  # Also accepts: h264, av1
 
         # Skip transcoding if ALL of these conditions are already met.
         # If any condition fails, the file is transcoded.
@@ -27,25 +27,21 @@ phases:
           bitrate_under: 15M           # Under 15 Mbps (already efficient)
 
         # Quality settings control the output encoding.
-        quality:
-          mode: crf      # Constant Rate Factor — variable bitrate for consistent quality
-                         # Alternative: "bitrate" for fixed bitrate mode
-          crf: 20        # Lower = better quality, larger files. Range: 0-51
-                         #   18 = visually lossless, 20 = high quality, 23 = default, 28 = low
-          preset: medium # Encoding speed/quality tradeoff. Slower = smaller files.
-                         # Options: ultrafast, superfast, veryfast, faster, fast,
-                         #          medium, slow, slower, veryslow
+        crf: 20        # Constant Rate Factor — variable bitrate for consistent quality
+                       #   18 = visually lossless, 20 = high quality, 23 = default, 28 = low
+        preset: medium # Encoding speed/quality tradeoff. Slower = smaller files.
+                       # Options: ultrafast, superfast, veryfast, faster, fast,
+                       #          medium, slow, slower, veryslow
 
         # Downscale video if above max resolution. Does not upscale.
-        scaling:
-          max_resolution: 1080p  # Options: 480p, 720p, 1080p, 1440p, 2160p
-          algorithm: lanczos     # Options: lanczos, bicubic, bilinear, spline
+        max_resolution: 1080p  # Options: 480p, 720p, 1080p, 1440p, 2160p
+        scale_algorithm: lanczos     # Options: lanczos, bicubic, bilinear, spline
 
       audio:
         # Keep these codecs as-is (no re-encoding). Lossless codecs are
         # expensive to encode and should usually be preserved.
-        preserve_codecs: [truehd, dts-hd, flac]
+        preserve: [truehd, dts-hd, flac]
 
         # Re-encode all other audio codecs to this format.
-        transcode_to: aac            # Common choices: aac, ac3, eac3, opus
-        transcode_bitrate: 192k      # Per-channel: 192k stereo, scales with channels
+        to: aac            # Common choices: aac, ac3, eac3, opus
+        bitrate: 192k      # Per-channel: 192k stereo, scales with channels

@@ -1,4 +1,4 @@
-# Conditional Transcoding Policy (V12)
+# Conditional Transcoding Policy (V13)
 # Two-phase workflow with smart skip conditions and hardware acceleration
 #
 # Phase 1 remuxes to MKV, Phase 2 transcodes to HEVC with detailed skip
@@ -6,7 +6,7 @@
 #
 # Usage:
 #   vpo policy run -p transcode-conditional.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Smart HEVC Transcode
 description: Two-phase transcode to MKV/HEVC with skip conditions for compliant files and hardware acceleration.
 
@@ -25,7 +25,7 @@ phases:
   - name: compress
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
 
         # Skip transcoding if ALL conditions are met (AND logic).
         # Files already HEVC, at/below 1080p, and under 15 Mbps are left alone.
@@ -34,31 +34,27 @@ phases:
           resolution_within: 1080p
           bitrate_under: 15M
 
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
-          # Tune optimizes encoding for specific content types.
-          # Options: film (live action), animation, grain (preserves film grain),
-          #          stillimage, fastdecode, zerolatency
-          tune: film
+        crf: 20
+        preset: medium
+        # Tune optimizes encoding for specific content types.
+        # Options: film (live action), animation, grain (preserves film grain),
+        #          stillimage, fastdecode, zerolatency
+        tune: film
 
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-          # When false (default), videos below max_resolution are not upscaled.
-          # Set to true only if you need uniform resolution output.
-          upscale: false
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        # When false (default), videos below max_resolution are not upscaled.
+        # Set to true only if you need uniform resolution output.
+        upscale: false
 
         # Hardware acceleration uses GPU encoders for much faster transcoding.
-        hardware_acceleration:
-          enabled: auto   # "auto" probes for available HW encoders at runtime
-                          # Options: auto, true (require HW), false (CPU only)
-          fallback_to_cpu: true  # If HW encoder fails, retry with CPU (libx265)
+        hw: auto   # "auto" probes for available HW encoders at runtime
+                    # Options: auto, true (require HW), false (CPU only)
+        hw_fallback: true  # If HW encoder fails, retry with CPU (libx265)
 
       audio:
         # Lossless codecs are preserved; everything else is transcoded.
         # pcm_s24le is raw PCM from Blu-ray — worth keeping lossless.
-        preserve_codecs: [truehd, dts-hd, flac, pcm_s24le]
-        transcode_to: aac
-        transcode_bitrate: 192k
+        preserve: [truehd, dts-hd, flac, pcm_s24le]
+        to: aac
+        bitrate: 192k

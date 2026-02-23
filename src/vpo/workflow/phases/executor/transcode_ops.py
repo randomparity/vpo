@@ -79,9 +79,12 @@ def execute_transcode(
 
         # Build TranscodePolicyConfig from VideoTranscodeConfig
         transcode_policy = TranscodePolicyConfig(
-            target_video_codec=vt.target_codec,
-            target_crf=vt.quality.crf if vt.quality else None,
-            max_resolution=vt.scaling.max_resolution if vt.scaling else None,
+            target_video_codec=vt.to,
+            target_crf=vt.crf,
+            target_bitrate=vt.target_bitrate,
+            max_resolution=vt.max_resolution,
+            max_width=vt.max_width,
+            max_height=vt.max_height,
         )
 
         # Get video track info
@@ -102,7 +105,7 @@ def execute_transcode(
             policy=transcode_policy,
             skip_if=vt.skip_if,
             audio_config=phase.audio_transcode,
-            hardware_acceleration=vt.hardware_acceleration,
+            video_config=vt,
             backup_original=True,
         )
 
@@ -133,28 +136,26 @@ def execute_transcode(
         if dry_run:
             logger.info(
                 "[DRY-RUN] Would transcode video to %s",
-                vt.target_codec,
+                vt.to,
             )
             changes += 1
         else:
             # Capture file size and codec before transcode for logging
             state.size_before = file_path.stat().st_size
             state.video_source_codec = video_track.codec
-            state.video_target_codec = vt.target_codec
+            state.video_target_codec = vt.to
             state.transcode_reasons = list(plan.transcode_reasons)
 
-            # Extract scale algorithm from scaling settings
-            scale_algorithm = None
-            if vt.scaling and vt.scaling.algorithm:
-                scale_algorithm = vt.scaling.algorithm.value
+            # Extract scale algorithm from flattened settings
+            scale_algorithm = vt.scale_algorithm.value if vt.scale_algorithm else None
 
             # Extract custom ffmpeg_args from config
             ffmpeg_args = vt.ffmpeg_args
 
             result = executor.execute(
                 plan,
-                quality=vt.quality,
-                target_codec=vt.target_codec,
+                video_config=vt,
+                target_codec=vt.to,
                 scale_algorithm=scale_algorithm,
                 ffmpeg_args=ffmpeg_args,
             )
@@ -199,13 +200,13 @@ def execute_transcode(
             logger.info(
                 "[DRY-RUN] Would transcode %d audio track(s) to %s",
                 transcode_count,
-                phase.audio_transcode.transcode_to,
+                phase.audio_transcode.to,
             )
             changes += transcode_count
         else:
             # Execute audio-only transcode
             result = execute_audio_only_transcode(
-                file_path, tracks, audio_plan, phase.audio_transcode.transcode_to
+                file_path, tracks, audio_plan, phase.audio_transcode.to
             )
             if not result:
                 raise RuntimeError("Audio transcode failed")

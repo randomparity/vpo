@@ -1082,8 +1082,8 @@ function createRuleBuilder(rule, onUpdate, onRemove) {
     const ruleData = rule ? { ...rule } : {
         name: 'New Rule',
         when: { track_type: 'audio' },
-        then_actions: [],
-        else_actions: null
+        then: [],
+        else: null
     }
 
     function render() {
@@ -1123,15 +1123,15 @@ function createRuleBuilder(rule, onUpdate, onRemove) {
         conditionContainer.appendChild(condBuilder)
 
         // Then actions
-        const thenList = createActionsList(ruleData.then_actions || [], (updated) => {
-            ruleData.then_actions = updated
+        const thenList = createActionsList(ruleData.then || [], (updated) => {
+            ruleData.then = updated
             onUpdate(buildRule())
         }, 'Then Actions')
         thenContainer.appendChild(thenList)
 
         // Else actions
-        const elseList = createActionsList(ruleData.else_actions || [], (updated) => {
-            ruleData.else_actions = updated.length > 0 ? updated : null
+        const elseList = createActionsList(ruleData.else || [], (updated) => {
+            ruleData.else = updated.length > 0 ? updated : null
             onUpdate(buildRule())
         }, 'Else Actions (optional)')
         elseContainer.appendChild(elseList)
@@ -1141,8 +1141,8 @@ function createRuleBuilder(rule, onUpdate, onRemove) {
         return {
             name: ruleData.name || 'Unnamed Rule',
             when: ruleData.when || { track_type: 'audio' },
-            then_actions: ruleData.then_actions || [],
-            else_actions: ruleData.else_actions || null
+            then: ruleData.then || [],
+            else: ruleData.else || null
         }
     }
 
@@ -1165,11 +1165,44 @@ export function initConditionalSection(policyData, onUpdate) {
         return null
     }
 
-    // Internal state - transform from API format (which may use 'conditional' key)
-    let rules = policyData.conditional ? [...policyData.conditional] : []
+    // Insert match mode selector before the rules list
+    let matchModeSelect = document.getElementById('rules-match-mode')
+    if (!matchModeSelect) {
+        const matchModeContainer = document.createElement('div')
+        matchModeContainer.className = 'form-group mb-md'
+        matchModeContainer.innerHTML = `
+            <label class="form-label" for="rules-match-mode">Match Mode:</label>
+            <select id="rules-match-mode" class="form-select">
+                <option value="first">First match wins (stop after first match)</option>
+                <option value="all">All matches (execute every matching rule)</option>
+            </select>
+        `
+        rulesListEl.parentNode.insertBefore(matchModeContainer, rulesListEl)
+        matchModeSelect = document.getElementById('rules-match-mode')
+    }
+
+    // Internal state - V13 rules is {match, items}, extract items array
+    let matchMode = 'first'
+    let rules = []
+    if (policyData.rules) {
+        if (policyData.rules.items && Array.isArray(policyData.rules.items)) {
+            matchMode = policyData.rules.match || 'first'
+            rules = [...policyData.rules.items]
+        } else if (Array.isArray(policyData.rules)) {
+            // Fallback for legacy flat array format
+            rules = [...policyData.rules]
+        }
+    }
+
+    // Sync match mode select with state
+    matchModeSelect.value = matchMode
+    matchModeSelect.addEventListener('change', () => {
+        matchMode = matchModeSelect.value
+        notifyUpdate()
+    })
 
     function notifyUpdate() {
-        onUpdate(rules.length > 0 ? [...rules] : null)
+        onUpdate(rules.length > 0 ? { match: matchMode, items: [...rules] } : null)
     }
 
     function renderRules() {
@@ -1213,8 +1246,8 @@ export function initConditionalSection(policyData, onUpdate) {
         rules.push({
             name: `Rule ${rules.length + 1}`,
             when: { track_type: 'audio' },
-            then_actions: [],
-            else_actions: null
+            then: [],
+            else: null
         })
         renderRules()
         notifyUpdate()
@@ -1235,19 +1268,41 @@ export function initConditionalSection(policyData, onUpdate) {
     return {
         /**
          * Get current conditional rules configuration
-         * @returns {Array|null} Conditional rules array or null if empty
+         * @returns {Object|null} Rules config {match, items} or null if empty
          */
         getConfig() {
-            return rules.length > 0 ? [...rules] : null
+            return rules.length > 0 ? { match: matchMode, items: [...rules] } : null
         },
 
         /**
          * Set conditional rules configuration
-         * @param {Array|null} config - Conditional rules array
+         * @param {Object|null} config - Rules config {match, items} or null
          */
         setConfig(config) {
-            rules = config ? [...config] : []
+            if (config && config.items && Array.isArray(config.items)) {
+                matchMode = config.match || 'first'
+                rules = [...config.items]
+            } else if (Array.isArray(config)) {
+                rules = [...config]
+            } else {
+                rules = []
+            }
+            matchModeSelect.value = matchMode
             renderRules()
+        },
+
+        /**
+         * Get/set the match mode
+         * @returns {string} Current match mode ('first' or 'all')
+         */
+        getMatchMode() {
+            return matchMode
+        },
+
+        setMatchMode(mode) {
+            matchMode = mode
+            matchModeSelect.value = matchMode
+            notifyUpdate()
         },
 
         /**
@@ -1255,7 +1310,15 @@ export function initConditionalSection(policyData, onUpdate) {
          * @param {Object} policyData - Policy data
          */
         refresh(policyData) {
-            rules = policyData.conditional ? [...policyData.conditional] : []
+            if (policyData.rules && policyData.rules.items && Array.isArray(policyData.rules.items)) {
+                matchMode = policyData.rules.match || 'first'
+                rules = [...policyData.rules.items]
+            } else if (Array.isArray(policyData.rules)) {
+                rules = [...policyData.rules]
+            } else {
+                rules = []
+            }
+            matchModeSelect.value = matchMode
             renderRules()
         }
     }

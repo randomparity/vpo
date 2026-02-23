@@ -316,22 +316,22 @@ def compute_track_dispositions(
         action: Literal["KEEP", "REMOVE"] = "KEEP"
         reason = "no filter applied"
 
-        if track_type == "audio" and policy.audio_filter:
+        if track_type == "audio" and policy.keep_audio:
             # Classify track for V10 music/sfx/non_speech handling
             classification = classify_track(
                 track, policy, matcher, transcription_results
             )
             action, reason = _evaluate_audio_track(
-                track, policy.audio_filter, classification
+                track, policy.keep_audio, classification
             )
             audio_actions[track.index] = (action, reason)
-        elif track_type == "subtitle" and policy.subtitle_filter:
+        elif track_type == "subtitle" and policy.keep_subtitles:
             action, reason = _evaluate_subtitle_track(
-                track, policy.subtitle_filter, subtitle_forced_will_be_cleared
+                track, policy.keep_subtitles, subtitle_forced_will_be_cleared
             )
-        elif track_type == "attachment" and policy.attachment_filter:
+        elif track_type == "attachment" and policy.filter_attachments:
             action, reason = _evaluate_attachment_track(
-                track, policy.attachment_filter, has_styled_subs
+                track, policy.filter_attachments, has_styled_subs
             )
 
         # Build resolution string for video tracks
@@ -367,15 +367,15 @@ def compute_track_dispositions(
         )
 
     # Check if audio filtering is active and needs fallback
-    if policy.audio_filter and audio_tracks:
+    if policy.keep_audio and audio_tracks:
         kept_count = sum(1 for action, _ in audio_actions.values() if action == "KEEP")
 
-        if kept_count < policy.audio_filter.minimum:
+        if kept_count < policy.keep_audio.minimum:
             # Apply fallback logic
             updated_actions = _apply_fallback(
                 audio_tracks,
                 audio_actions,
-                policy.audio_filter,
+                policy.keep_audio,
                 tracks,
             )
 

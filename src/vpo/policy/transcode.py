@@ -232,7 +232,7 @@ def evaluate_audio_track_v6(
     stream_index = track.index  # Will be re-indexed by caller
 
     # Check if codec should be preserved (stream-copied)
-    if audio_codec_matches_any(codec, audio_config.preserve_codecs):
+    if audio_codec_matches_any(codec, audio_config.preserve):
         return AudioTrackPlan(
             track_index=track.index,
             stream_index=stream_index,
@@ -253,9 +253,9 @@ def evaluate_audio_track_v6(
         channels=track.channels,
         channel_layout=track.channel_layout,
         action=AudioAction.TRANSCODE,
-        target_codec=audio_config.transcode_to,
-        target_bitrate=audio_config.transcode_bitrate,
-        reason=f"Transcoding '{codec}' to '{audio_config.transcode_to}'",
+        target_codec=audio_config.to,
+        target_bitrate=audio_config.bitrate,
+        reason=f"Transcoding '{codec}' to '{audio_config.to}'",
     )
 
 

@@ -1,5 +1,5 @@
 # Multi-Language Audio Detection Policy Example
-# Schema Version: 12
+# Schema Version: 13
 #
 # This policy demonstrates the multi-language audio detection feature.
 # It automatically enables forced subtitles when audio contains multiple
@@ -21,14 +21,14 @@
 # Or use auto-analyze:
 #   vpo policy run --policy policies/examples/multi-language.yaml /path/to/movie.mkv --auto-analyze
 
-schema_version: 12
+schema_version: 13
 
 config:
   # Prefer English audio and subtitles
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
   # Standard commentary detection patterns
@@ -58,53 +58,55 @@ phases:
 
   # Phase 2: Multi-language audio handling
   - name: multi-language-subtitles
-    conditional:
-      # Rule 1: Enable forced English subtitles for multi-language content
-      # Triggers when:
-      # - Audio track contains multiple languages with English as primary
-      # - A forced English subtitle track exists
-      - name: "Enable forced subs for multi-language audio"
-        when:
-          and:
-            - audio_is_multi_language:
-                primary_language: eng
-                threshold: 0.05  # At least 5% secondary language content
-            - exists:
-                track_type: subtitle
-                language: eng
-                is_forced: true
-        then:
-          - set_default:
-              track_type: subtitle
-              language: eng
-          - warn: "Enabled forced English subtitles for multi-language content"
-
-      # Rule 2: Warn when multi-language content has no forced subtitles
-      # This helps identify files that need forced subtitles added
-      - name: "Warn about missing forced subs"
-        when:
-          and:
-            - audio_is_multi_language:
-                primary_language: eng
-                threshold: 0.05
-            - not:
-                exists:
+    rules:
+      match: first
+      items:
+        # Rule 1: Enable forced English subtitles for multi-language content
+        # Triggers when:
+        # - Audio track contains multiple languages with English as primary
+        # - A forced English subtitle track exists
+        - name: "Enable forced subs for multi-language audio"
+          when:
+            and:
+              - audio_is_multi_language:
+                  primary_language: eng
+                  threshold: 0.05  # At least 5% secondary language content
+              - exists:
                   track_type: subtitle
                   language: eng
                   is_forced: true
-        then:
-          - warn: "{filename} needs forced English subtitles (multi-language audio detected)"
+          then:
+            - set_default:
+                track_type: subtitle
+                language: eng
+            - warn: "Enabled forced English subtitles for multi-language content"
 
-      # Rule 3: Skip transcode for 4K HEVC content (preserve quality)
-      - name: "4K HEVC passthrough"
-        when:
-          and:
-            - exists:
-                track_type: video
-                height: { gte: 2160 }
-            - exists:
-                track_type: video
-                codec: hevc
-        then:
-          - skip_video_transcode: true
-          - warn: "4K HEVC content - preserving original video"
+        # Rule 2: Warn when multi-language content has no forced subtitles
+        # This helps identify files that need forced subtitles added
+        - name: "Warn about missing forced subs"
+          when:
+            and:
+              - audio_is_multi_language:
+                  primary_language: eng
+                  threshold: 0.05
+              - not:
+                  exists:
+                    track_type: subtitle
+                    language: eng
+                    is_forced: true
+          then:
+            - warn: "{filename} needs forced English subtitles (multi-language audio detected)"
+
+        # Rule 3: Skip transcode for 4K HEVC content (preserve quality)
+        - name: "4K HEVC passthrough"
+          when:
+            and:
+              - exists:
+                  track_type: video
+                  height: { gte: 2160 }
+              - exists:
+                  track_type: video
+                  codec: hevc
+          then:
+            - skip_video_transcode: true
+            - warn: "4K HEVC content - preserving original video"

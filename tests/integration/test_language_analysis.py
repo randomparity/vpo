@@ -157,47 +157,49 @@ def v7_multi_language_policy(temp_dir: Path) -> Path:
     """Create a policy file with audio_is_multi_language condition."""
     policy_path = temp_dir / "multi-language-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
 
 phases:
   - name: apply
-    conditional:
-      - name: "Enable forced subs for multi-language audio"
-        when:
-          and:
-            - audio_is_multi_language:
-                primary_language: eng
-                threshold: 0.05
-            - exists:
-                track_type: subtitle
-                language: eng
-                is_forced: true
-        then:
-          - set_default:
-              track_type: subtitle
-              language: eng
-          - warn: "Enabled forced English subtitles for multi-language content"
-
-      - name: "Warn about missing forced subs"
-        when:
-          and:
-            - audio_is_multi_language:
-                primary_language: eng
-            - not:
-                exists:
+    rules:
+      match: first
+      items:
+        - name: "Enable forced subs for multi-language audio"
+          when:
+            and:
+              - audio_is_multi_language:
+                  primary_language: eng
+                  threshold: 0.05
+              - exists:
                   track_type: subtitle
                   language: eng
                   is_forced: true
-        then:
-          - warn: "Multi-language audio: no forced English subtitles"
+          then:
+            - set_default:
+                track_type: subtitle
+                language: eng
+            - warn: "Enabled forced English subtitles for multi-language content"
+
+        - name: "Warn about missing forced subs"
+          when:
+            and:
+              - audio_is_multi_language:
+                  primary_language: eng
+              - not:
+                  exists:
+                    track_type: subtitle
+                    language: eng
+                    is_forced: true
+          then:
+            - warn: "Multi-language audio: no forced English subtitles"
 """)
     return policy_path
 
@@ -207,21 +209,23 @@ def v7_simple_multi_language_policy(temp_dir: Path) -> Path:
     """Create a policy with simple boolean audio_is_multi_language."""
     policy_path = temp_dir / "simple-multi-language.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 
 phases:
   - name: apply
-    conditional:
-      - name: "Detect any multi-language content"
-        when:
-          audio_is_multi_language:
-            threshold: 0.05
-        then:
-          - warn: "Multi-language audio detected"
+    rules:
+      match: first
+      items:
+        - name: "Detect any multi-language content"
+          when:
+            audio_is_multi_language:
+              threshold: 0.05
+          then:
+            - warn: "Multi-language audio detected"
 """)
     return policy_path
 
@@ -231,26 +235,28 @@ def v6_policy_no_v7_features(temp_dir: Path) -> Path:
     """Create a policy without any V7+ features."""
     policy_path = temp_dir / "v6-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 
 phases:
   - name: apply
-    conditional:
-      - name: "Skip 4K HEVC"
-        when:
-          and:
-            - exists:
-                track_type: video
-                height: { gte: 2160 }
-            - exists:
-                track_type: video
-                codec: hevc
-        then:
-          - skip_video_transcode: true
+    rules:
+      match: first
+      items:
+        - name: "Skip 4K HEVC"
+          when:
+            and:
+              - exists:
+                  track_type: video
+                  height: { gte: 2160 }
+              - exists:
+                  track_type: video
+                  codec: hevc
+          then:
+            - skip_video_transcode: true
 """)
     return policy_path
 
@@ -314,10 +320,10 @@ class TestAudioIsMultiLanguageCondition:
         """Test that policy with audio_is_multi_language loads correctly."""
         policy = load_policy(v7_multi_language_policy)
 
-        assert policy.schema_version == 12
-        assert len(policy.phases[0].conditional) == 2
+        assert policy.schema_version == 13
+        assert len(policy.phases[0].rules.items) == 2
         assert (
-            policy.phases[0].conditional[0].name
+            policy.phases[0].rules.items[0].name
             == "Enable forced subs for multi-language audio"
         )
 
@@ -328,8 +334,8 @@ class TestAudioIsMultiLanguageCondition:
         """Test that policy with simple boolean audio_is_multi_language loads."""
         policy = load_policy(v7_simple_multi_language_policy)
 
-        assert policy.schema_version == 12
-        assert len(policy.phases[0].conditional) == 1
+        assert policy.schema_version == 13
+        assert len(policy.phases[0].rules.items) == 1
 
     def test_audio_is_multi_language_condition_matches_multi_language_track(
         self,
@@ -345,7 +351,7 @@ class TestAudioIsMultiLanguageCondition:
         language_results = {1: multi_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].conditional,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -369,7 +375,7 @@ class TestAudioIsMultiLanguageCondition:
         language_results = {1: single_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].conditional,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -414,22 +420,24 @@ class TestAudioIsMultiLanguageCondition:
         # Policy expects English primary
         policy_path = temp_dir / "english-primary.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 
 phases:
   - name: apply
-    conditional:
-      - name: "English primary multi-language"
-        when:
-          audio_is_multi_language:
-            primary_language: eng
-            threshold: 0.05
-        then:
-          - warn: "English multi-language detected"
+    rules:
+      match: first
+      items:
+        - name: "English primary multi-language"
+          when:
+            audio_is_multi_language:
+              primary_language: eng
+              threshold: 0.05
+          then:
+            - warn: "English multi-language detected"
 """)
 
         policy = load_policy(policy_path)
@@ -437,7 +445,7 @@ phases:
         language_results = {1: french_primary_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].conditional,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -481,21 +489,23 @@ phases:
         # Policy with 5% threshold
         policy_path = temp_dir / "threshold-policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
 
 phases:
   - name: apply
-    conditional:
-      - name: "Multi-language with 5% threshold"
-        when:
-          audio_is_multi_language:
-            threshold: 0.05
-        then:
-          - warn: "Multi-language detected"
+    rules:
+      match: first
+      items:
+        - name: "Multi-language with 5% threshold"
+          when:
+            audio_is_multi_language:
+              threshold: 0.05
+          then:
+            - warn: "Multi-language detected"
 """)
 
         policy = load_policy(policy_path)
@@ -503,7 +513,7 @@ phases:
         language_results = {1: minimal_secondary}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].conditional,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -535,7 +545,7 @@ class TestForcedSubtitleEnablement:
         language_results = {1: multi_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].conditional,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -558,7 +568,7 @@ class TestForcedSubtitleEnablement:
         language_results = {1: multi_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].conditional,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -582,9 +592,9 @@ class TestLanguageAnalysisFeatures:
         """Test that policy with conditional rules loads correctly."""
         policy = load_policy(v6_policy_no_v7_features)
 
-        assert policy.schema_version == 12
-        assert len(policy.phases[0].conditional) == 1
-        assert policy.phases[0].conditional[0].name == "Skip 4K HEVC"
+        assert policy.schema_version == 13
+        assert len(policy.phases[0].rules.items) == 1
+        assert policy.phases[0].rules.items[0].name == "Skip 4K HEVC"
 
 
 # =============================================================================

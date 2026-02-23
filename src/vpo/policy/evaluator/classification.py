@@ -113,7 +113,7 @@ def classify_track(
         # Stage 3: Language-based classification for dialog tracks
         # Use languages_match() to handle different ISO standards
         lang = track.language or "und"
-        for pref_lang in policy.audio_language_preference:
+        for pref_lang in policy.audio_languages:
             if languages_match(lang, pref_lang):
                 return TrackType.AUDIO_MAIN
         return TrackType.AUDIO_ALTERNATE
@@ -176,14 +176,10 @@ def compute_desired_order(
 
         if classification == TrackType.AUDIO_MAIN:
             # Use languages_match() to find preference index
-            secondary = _find_language_preference_index(
-                lang, policy.audio_language_preference
-            )
+            secondary = _find_language_preference_index(lang, policy.audio_languages)
         elif classification == TrackType.SUBTITLE_MAIN:
             # Use languages_match() to find preference index
-            secondary = _find_language_preference_index(
-                lang, policy.subtitle_language_preference
-            )
+            secondary = _find_language_preference_index(lang, policy.subtitle_languages)
 
         return (primary, secondary, track.index)
 
@@ -312,7 +308,7 @@ def compute_default_flags(
         # Find first non-commentary audio matching language preference
         default_audio = _find_preferred_track(
             audio_tracks,
-            policy.audio_language_preference,
+            policy.audio_languages,
             matcher,
             preferred_codecs=flags.preferred_audio_codec,
         )
@@ -327,7 +323,7 @@ def compute_default_flags(
     if flags.set_preferred_subtitle_default and subtitle_tracks:
         # Find first non-commentary subtitle matching language preference
         default_subtitle = _find_preferred_track(
-            subtitle_tracks, policy.subtitle_language_preference, matcher
+            subtitle_tracks, policy.subtitle_languages, matcher
         )
         if default_subtitle is not None:
             result[default_subtitle.index] = True
@@ -345,13 +341,13 @@ def compute_default_flags(
         flags.set_subtitle_default_when_audio_differs
         and subtitle_tracks
         and not _audio_matches_language_preference(
-            audio_tracks, policy.audio_language_preference, matcher
+            audio_tracks, policy.audio_languages, matcher
         )
     ):
         # Only set if we haven't already set a subtitle default above
         if not any(result.get(t.index) for t in subtitle_tracks):
             default_subtitle = _find_preferred_track(
-                subtitle_tracks, policy.subtitle_language_preference, matcher
+                subtitle_tracks, policy.subtitle_languages, matcher
             )
             if default_subtitle is not None:
                 result[default_subtitle.index] = True

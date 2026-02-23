@@ -203,9 +203,9 @@ export function initFiltersSection(policyData, onUpdate) {
     }
 
     // Internal state
-    let audioFilter = policyData.audio_filter ? { ...policyData.audio_filter } : null
-    let subtitleFilter = policyData.subtitle_filter ? { ...policyData.subtitle_filter } : null
-    let attachmentFilter = policyData.attachment_filter ? { ...policyData.attachment_filter } : null
+    let audioFilter = policyData.keep_audio ? { ...policyData.keep_audio } : null
+    let subtitleFilter = policyData.keep_subtitles ? { ...policyData.keep_subtitles } : null
+    let attachmentFilter = policyData.filter_attachments ? { ...policyData.filter_attachments } : null
 
     // Track language arrays separately for mutation
     let audioLanguages = audioFilter?.languages ? [...audioFilter.languages] : []
@@ -213,9 +213,9 @@ export function initFiltersSection(policyData, onUpdate) {
 
     function notifyUpdate() {
         onUpdate({
-            audio_filter: getAudioFilterConfig(),
-            subtitle_filter: getSubtitleFilterConfig(),
-            attachment_filter: getAttachmentFilterConfig()
+            keep_audio: getAudioFilterConfig(),
+            keep_subtitles: getSubtitleFilterConfig(),
+            filter_attachments: getAttachmentFilterConfig()
         })
     }
 
@@ -508,13 +508,13 @@ export function initFiltersSection(policyData, onUpdate) {
     return {
         /**
          * Get current filter configuration
-         * @returns {Object} Filter configs (audio_filter, subtitle_filter, attachment_filter)
+         * @returns {Object} Filter configs (keep_audio, keep_subtitles, filter_attachments)
          */
         getConfig() {
             return {
-                audio_filter: getAudioFilterConfig(),
-                subtitle_filter: getSubtitleFilterConfig(),
-                attachment_filter: getAttachmentFilterConfig()
+                keep_audio: getAudioFilterConfig(),
+                keep_subtitles: getSubtitleFilterConfig(),
+                filter_attachments: getAttachmentFilterConfig()
             }
         },
 
@@ -523,9 +523,9 @@ export function initFiltersSection(policyData, onUpdate) {
          * @param {Object} config - Filter configs
          */
         setConfig(config) {
-            audioFilter = config.audio_filter || null
-            subtitleFilter = config.subtitle_filter || null
-            attachmentFilter = config.attachment_filter || null
+            audioFilter = config.keep_audio || null
+            subtitleFilter = config.keep_subtitles || null
+            attachmentFilter = config.filter_attachments || null
 
             audioLanguages = audioFilter?.languages ? [...audioFilter.languages] : []
             subtitleLanguages = subtitleFilter?.languages ? [...subtitleFilter.languages] : []
@@ -541,9 +541,9 @@ export function initFiltersSection(policyData, onUpdate) {
          */
         refresh(policyData) {
             this.setConfig({
-                audio_filter: policyData.audio_filter,
-                subtitle_filter: policyData.subtitle_filter,
-                attachment_filter: policyData.attachment_filter
+                keep_audio: policyData.keep_audio,
+                keep_subtitles: policyData.keep_subtitles,
+                filter_attachments: policyData.filter_attachments
             })
         }
     }

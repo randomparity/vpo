@@ -1,8 +1,8 @@
-"""Unit tests for PolicyEditorRequest V12 fields.
+"""Unit tests for PolicyEditorRequest V13 fields.
 
-Tests the V12 policy support in PolicyEditorRequest:
+Tests the V13 policy support in PolicyEditorRequest:
 - from_dict() handling of phases and config
-- to_policy_dict() V12 structure generation
+- to_policy_dict() V13 structure generation
 - Backward compatibility with legacy policies
 """
 
@@ -15,11 +15,11 @@ from vpo.server.ui.models import PolicyEditorRequest
 _OPTIONAL_NONE = {
     "transcode": None,
     "transcription": None,
-    "audio_filter": None,
-    "subtitle_filter": None,
-    "attachment_filter": None,
+    "keep_audio": None,
+    "keep_subtitles": None,
+    "filter_attachments": None,
     "container": None,
-    "conditional": None,
+    "rules": None,
     "audio_synthesis": None,
     "workflow": None,
     "phases": None,
@@ -35,28 +35,28 @@ def _make_request(base_fields, **overrides):
     return PolicyEditorRequest(**base_fields, **{**_OPTIONAL_NONE, **overrides})
 
 
-class TestPolicyEditorRequestV12:
-    """Tests for PolicyEditorRequest V12 support."""
+class TestPolicyEditorRequestV13:
+    """Tests for PolicyEditorRequest V13 support."""
 
     @pytest.fixture
     def base_fields(self):
         """Base fields required for all PolicyEditorRequest instances."""
         return {
             "track_order": ["video", "audio_main"],
-            "audio_language_preference": ["eng", "und"],
-            "subtitle_language_preference": ["eng"],
+            "audio_languages": ["eng", "und"],
+            "subtitle_languages": ["eng"],
             "commentary_patterns": ["commentary"],
             "default_flags": {"set_first_video_default": True},
             "last_modified_timestamp": "2024-01-01T00:00:00Z",
         }
 
     def test_from_dict_with_v12_fields(self, base_fields):
-        """Test from_dict correctly parses V12 phases and config."""
+        """Test from_dict correctly parses V13 phases and config."""
         data = {
             **base_fields,
             "phases": [
-                {"name": "cleanup", "audio_filter": {"languages": ["eng"]}},
-                {"name": "optimize", "transcode": {"target_codec": "hevc"}},
+                {"name": "cleanup", "keep_audio": {"languages": ["eng"]}},
+                {"name": "optimize", "transcode": {"to": "hevc"}},
             ],
             "config": {"on_error": "skip"},
         }
@@ -66,28 +66,28 @@ class TestPolicyEditorRequestV12:
         assert request.config == data["config"]
 
     def test_from_dict_without_v12_fields(self, base_fields):
-        """Test from_dict handles missing V12 fields with defaults."""
+        """Test from_dict handles missing V13 fields with defaults."""
         request = PolicyEditorRequest.from_dict(base_fields)
 
         assert request.phases is None
         assert request.config == {}  # Defaults to empty dict
 
     def test_to_policy_dict_v12_with_phases(self, base_fields):
-        """Test to_policy_dict produces V12 structure when phases present."""
+        """Test to_policy_dict produces V13 structure when phases present."""
         request = _make_request(
             base_fields,
-            phases=[{"name": "test", "audio_filter": {"languages": ["eng"]}}],
+            phases=[{"name": "test", "keep_audio": {"languages": ["eng"]}}],
             config={"on_error": "skip"},
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 12
+        assert result["schema_version"] == 13
         assert "phases" in result
         assert result["phases"] == [
-            {"name": "test", "audio_filter": {"languages": ["eng"]}}
+            {"name": "test", "keep_audio": {"languages": ["eng"]}}
         ]
         assert result["config"] == {"on_error": "skip"}
-        # V12 should not include legacy fields at top level
+        # V13 should not include legacy fields at top level
         assert "track_order" not in result
 
     def test_to_policy_dict_v12_without_explicit_config(self, base_fields):
@@ -98,18 +98,18 @@ class TestPolicyEditorRequestV12:
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 12
-        assert result["config"]["audio_language_preference"] == ["eng", "und"]
-        assert result["config"]["subtitle_language_preference"] == ["eng"]
+        assert result["schema_version"] == 13
+        assert result["config"]["audio_languages"] == ["eng", "und"]
+        assert result["config"]["subtitle_languages"] == ["eng"]
         assert result["config"]["commentary_patterns"] == ["commentary"]
         assert result["config"]["on_error"] == "continue"  # Default
 
     def test_to_policy_dict_legacy_without_phases(self, base_fields):
-        """Test to_policy_dict produces legacy structure when no V12 features used."""
+        """Test to_policy_dict produces legacy structure when no V13 features used."""
         request = _make_request(base_fields)
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 12
+        assert result["schema_version"] == 13
         assert "track_order" in result
         assert "phases" not in result
         assert "config" not in result
@@ -122,7 +122,7 @@ class TestPolicyEditorRequestV12:
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 12
+        assert result["schema_version"] == 13
         assert result["workflow"] == {
             "phases": ["ANALYZE", "APPLY"],
             "on_error": "skip",
@@ -138,8 +138,8 @@ class TestPolicyEditorRequestVersionDetection:
         """Base kwargs for PolicyEditorRequest."""
         return {
             "track_order": ["video", "audio_main"],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
+            "audio_languages": ["eng"],
+            "subtitle_languages": ["eng"],
             "commentary_patterns": [],
             "default_flags": {},
             **_OPTIONAL_NONE,
@@ -147,7 +147,7 @@ class TestPolicyEditorRequestVersionDetection:
         }
 
     def test_v12_takes_precedence(self, base_request_kwargs):
-        """Test that phases present means V12, even with other features."""
+        """Test that phases present means V13, even with other features."""
         request = PolicyEditorRequest(
             **{
                 **base_request_kwargs,
@@ -156,17 +156,17 @@ class TestPolicyEditorRequestVersionDetection:
                 # Also set V9 workflow - should be ignored
                 "workflow": {"phases": ["APPLY"]},
                 # Also set V3 filters - should be ignored
-                "audio_filter": {"languages": ["eng"]},
+                "keep_audio": {"languages": ["eng"]},
             }
         )
         result = request.to_policy_dict()
 
-        # V12 wins because phases is set
-        assert result["schema_version"] == 12
+        # V13 wins because phases is set
+        assert result["schema_version"] == 13
         assert "phases" in result
         # Legacy fields should not appear at top level
         assert "workflow" not in result
-        assert "audio_filter" not in result
+        assert "keep_audio" not in result
 
 
 class TestPolicyEditorRequestMetadata:
@@ -177,8 +177,8 @@ class TestPolicyEditorRequestMetadata:
         """Base fields required for all PolicyEditorRequest instances."""
         return {
             "track_order": ["video", "audio_main"],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
+            "audio_languages": ["eng"],
+            "subtitle_languages": ["eng"],
             "commentary_patterns": [],
             "default_flags": {},
             "last_modified_timestamp": "2024-01-01T00:00:00Z",

@@ -21,13 +21,13 @@ class TestSkipWhenYamlLoading:
     def test_load_skip_when_video_codec(self) -> None:
         """Load policy with video_codec skip condition."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "skip_when": {"video_codec": ["hevc", "h265"]},
+                    "skip_when": {"mode": "any", "video_codec": ["hevc", "h265"]},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -40,13 +40,13 @@ class TestSkipWhenYamlLoading:
     def test_load_skip_when_file_size(self) -> None:
         """Load policy with file_size skip condition."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "compress",
-                    "skip_when": {"file_size_under": "1GB"},
+                    "skip_when": {"mode": "any", "file_size_under": "1GB"},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -59,13 +59,13 @@ class TestSkipWhenYamlLoading:
     def test_load_skip_when_resolution(self) -> None:
         """Load policy with resolution skip condition."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "upscale",
-                    "skip_when": {"resolution": "4k"},
+                    "skip_when": {"mode": "any", "resolution": "4k"},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -78,11 +78,11 @@ class TestSkipWhenYamlLoading:
     def test_load_skip_when_duration(self) -> None:
         """Load policy with duration skip condition."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "analyze",
-                    "skip_when": {"duration_under": "30m"},
+                    "skip_when": {"mode": "any", "duration_under": "30m"},
                     "transcription": {"enabled": True},
                 }
             ],
@@ -95,16 +95,17 @@ class TestSkipWhenYamlLoading:
     def test_load_skip_when_multiple_conditions(self) -> None:
         """Load policy with multiple skip conditions (OR logic)."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
                     "skip_when": {
+                        "mode": "any",
                         "video_codec": ["hevc", "h265"],
                         "file_size_under": "500MB",
                     },
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -136,33 +137,34 @@ class TestSkipWhenValidation:
     """Tests for skip_when validation errors."""
 
     def test_skip_when_empty_raises_error(self) -> None:
-        """Empty skip_when raises validation error."""
+        """Empty skip_when raises validation error (mode is required)."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
                     "skip_when": {},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
         }
         with pytest.raises(PolicyValidationError) as exc_info:
             load_policy_from_dict(policy_dict)
-        assert "at least one condition" in str(exc_info.value).lower()
+        error_msg = str(exc_info.value).lower()
+        assert "mode" in error_msg or "at least one condition" in error_msg
 
     def test_skip_when_invalid_resolution(self) -> None:
         """Invalid resolution value raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "skip_when": {"resolution": "invalid"},
+                    "skip_when": {"mode": "any", "resolution": "invalid"},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -174,13 +176,13 @@ class TestSkipWhenValidation:
     def test_skip_when_invalid_file_size(self) -> None:
         """Invalid file size format raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "skip_when": {"file_size_under": "invalid"},
+                    "skip_when": {"mode": "any", "file_size_under": "invalid"},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -192,13 +194,13 @@ class TestSkipWhenValidation:
     def test_skip_when_invalid_duration(self) -> None:
         """Invalid duration format raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "skip_when": {"duration_under": "invalid"},
+                    "skip_when": {"mode": "any", "duration_under": "invalid"},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -210,13 +212,13 @@ class TestSkipWhenValidation:
     def test_skip_when_unknown_field_raises_error(self) -> None:
         """Unknown field in skip_when raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "skip_when": {"unknown_field": "value"},
+                    "skip_when": {"mode": "any", "unknown_field": "value"},
                     "transcode": {
-                        "video": {"target_codec": "hevc"},
+                        "video": {"to": "hevc"},
                     },
                 }
             ],
@@ -231,13 +233,13 @@ class TestDependsOnValidation:
     def test_depends_on_valid_earlier_phase(self) -> None:
         """depends_on can reference earlier phases."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {"name": "normalize", "container": {"target": "mkv"}},
                 {
                     "name": "transcode",
                     "depends_on": ["normalize"],
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
             ],
         }
@@ -248,12 +250,12 @@ class TestDependsOnValidation:
     def test_depends_on_unknown_phase_raises_error(self) -> None:
         """depends_on referencing unknown phase raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
                     "depends_on": ["nonexistent"],
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
             ],
         }
@@ -264,14 +266,14 @@ class TestDependsOnValidation:
     def test_depends_on_later_phase_raises_error(self) -> None:
         """depends_on referencing later phase raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
                     "depends_on": ["cleanup"],
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
-                {"name": "cleanup", "attachment_filter": {"remove_all": True}},
+                {"name": "cleanup", "filter_attachments": {"remove_all": True}},
             ],
         }
         with pytest.raises(PolicyValidationError) as exc_info:
@@ -281,12 +283,12 @@ class TestDependsOnValidation:
     def test_depends_on_self_raises_error(self) -> None:
         """depends_on referencing self raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
                     "depends_on": ["transcode"],
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
             ],
         }
@@ -304,22 +306,25 @@ class TestRunIfValidation:
     def test_run_if_phase_modified_valid(self) -> None:
         """run_if phase_modified can reference earlier phases."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
                 {
                     "name": "verify",
                     "run_if": {"phase_modified": "transcode"},
-                    "conditional": [
-                        {
-                            "name": "check",
-                            "when": {"exists": {"track_type": "video"}},
-                            "then": [{"warn": "test"}],
-                        }
-                    ],
+                    "rules": {
+                        "match": "first",
+                        "items": [
+                            {
+                                "name": "check",
+                                "when": {"exists": {"track_type": "video"}},
+                                "then": [{"warn": "test"}],
+                            }
+                        ],
+                    },
                 },
             ],
         }
@@ -331,18 +336,21 @@ class TestRunIfValidation:
     def test_run_if_unknown_phase_raises_error(self) -> None:
         """run_if referencing unknown phase raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "verify",
                     "run_if": {"phase_modified": "nonexistent"},
-                    "conditional": [
-                        {
-                            "name": "check",
-                            "when": {"exists": {"track_type": "video"}},
-                            "then": [{"warn": "test"}],
-                        }
-                    ],
+                    "rules": {
+                        "match": "first",
+                        "items": [
+                            {
+                                "name": "check",
+                                "when": {"exists": {"track_type": "video"}},
+                                "then": [{"warn": "test"}],
+                            }
+                        ],
+                    },
                 },
             ],
         }
@@ -353,18 +361,21 @@ class TestRunIfValidation:
     def test_run_if_empty_raises_error(self) -> None:
         """Empty run_if raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "verify",
                     "run_if": {},
-                    "conditional": [
-                        {
-                            "name": "check",
-                            "when": {"exists": {"track_type": "video"}},
-                            "then": [{"warn": "test"}],
-                        }
-                    ],
+                    "rules": {
+                        "match": "first",
+                        "items": [
+                            {
+                                "name": "check",
+                                "when": {"exists": {"track_type": "video"}},
+                                "then": [{"warn": "test"}],
+                            }
+                        ],
+                    },
                 },
             ],
         }
@@ -375,22 +386,25 @@ class TestRunIfValidation:
     def test_run_if_phase_completed_valid(self) -> None:
         """run_if phase_completed can reference earlier phases."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
                 {
                     "name": "verify",
                     "run_if": {"phase_completed": "transcode"},
-                    "conditional": [
-                        {
-                            "name": "check",
-                            "when": {"exists": {"track_type": "video"}},
-                            "then": [{"warn": "test"}],
-                        }
-                    ],
+                    "rules": {
+                        "match": "first",
+                        "items": [
+                            {
+                                "name": "check",
+                                "when": {"exists": {"track_type": "video"}},
+                                "then": [{"warn": "test"}],
+                            }
+                        ],
+                    },
                 },
             ],
         }
@@ -402,18 +416,21 @@ class TestRunIfValidation:
     def test_run_if_phase_completed_unknown_raises_error(self) -> None:
         """run_if phase_completed referencing unknown phase raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "verify",
                     "run_if": {"phase_completed": "nonexistent"},
-                    "conditional": [
-                        {
-                            "name": "check",
-                            "when": {"exists": {"track_type": "video"}},
-                            "then": [{"warn": "test"}],
-                        }
-                    ],
+                    "rules": {
+                        "match": "first",
+                        "items": [
+                            {
+                                "name": "check",
+                                "when": {"exists": {"track_type": "video"}},
+                                "then": [{"warn": "test"}],
+                            }
+                        ],
+                    },
                 },
             ],
         }
@@ -424,11 +441,11 @@ class TestRunIfValidation:
     def test_run_if_both_fields_raises_error(self) -> None:
         """run_if with both phase_modified and phase_completed raises error."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 },
                 {
                     "name": "verify",
@@ -436,13 +453,16 @@ class TestRunIfValidation:
                         "phase_modified": "transcode",
                         "phase_completed": "transcode",
                     },
-                    "conditional": [
-                        {
-                            "name": "check",
-                            "when": {"exists": {"track_type": "video"}},
-                            "then": [{"warn": "test"}],
-                        }
-                    ],
+                    "rules": {
+                        "match": "first",
+                        "items": [
+                            {
+                                "name": "check",
+                                "when": {"exists": {"track_type": "video"}},
+                                "then": [{"warn": "test"}],
+                            }
+                        ],
+                    },
                 },
             ],
         }
@@ -457,7 +477,7 @@ class TestOnErrorOverrideLoading:
     def test_load_on_error_skip(self) -> None:
         """Load phase with on_error: skip."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "analyze",
@@ -475,7 +495,7 @@ class TestOnErrorOverrideLoading:
     def test_load_on_error_continue(self) -> None:
         """Load phase with on_error: continue."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "analyze",
@@ -493,7 +513,7 @@ class TestOnErrorOverrideLoading:
     def test_load_on_error_fail(self) -> None:
         """Load phase with on_error: fail."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "analyze",
@@ -511,7 +531,7 @@ class TestOnErrorOverrideLoading:
     def test_on_error_none_when_not_specified(self) -> None:
         """on_error is None when not specified (uses global)."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "analyze",
@@ -530,7 +550,7 @@ class TestAudioSubtitleActionsInPhases:
     def test_load_audio_actions_in_phase(self) -> None:
         """Load phase with audio_actions."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "cleanup",
@@ -552,7 +572,7 @@ class TestAudioSubtitleActionsInPhases:
     def test_load_subtitle_actions_in_phase(self) -> None:
         """Load phase with subtitle_actions."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "cleanup",
@@ -574,7 +594,7 @@ class TestAudioSubtitleActionsInPhases:
     def test_load_both_actions_in_phase(self) -> None:
         """Load phase with both audio_actions and subtitle_actions."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "cleanup",
@@ -597,11 +617,11 @@ class TestAudioSubtitleActionsInPhases:
     def test_actions_none_when_not_specified(self) -> None:
         """audio_actions and subtitle_actions are None when not specified."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
-                    "transcode": {"video": {"target_codec": "hevc"}},
+                    "transcode": {"video": {"to": "hevc"}},
                 }
             ],
         }

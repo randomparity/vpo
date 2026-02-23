@@ -25,11 +25,11 @@ class TestPhasedPolicyPhaseNameValidation:
     def test_unique_phase_names_valid(self):
         """Test that different phase names are accepted."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {"on_error": "continue"},
             "phases": [
-                {"name": "prepare", "audio_filter": {"languages": ["eng"]}},
-                {"name": "cleanup", "audio_filter": {"languages": ["jpn"]}},
+                {"name": "prepare", "keep_audio": {"languages": ["eng"]}},
+                {"name": "cleanup", "keep_audio": {"languages": ["jpn"]}},
                 {"name": "finalize", "track_order": ["video", "audio_main"]},
             ],
         }
@@ -40,11 +40,11 @@ class TestPhasedPolicyPhaseNameValidation:
     def test_exact_duplicate_phase_names_rejected(self):
         """Test that exact duplicate phase names are rejected."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {"on_error": "continue"},
             "phases": [
-                {"name": "prepare", "audio_filter": {"languages": ["eng"]}},
-                {"name": "prepare", "audio_filter": {"languages": ["jpn"]}},
+                {"name": "prepare", "keep_audio": {"languages": ["eng"]}},
+                {"name": "prepare", "keep_audio": {"languages": ["jpn"]}},
             ],
         }
         with pytest.raises(PolicyValidationError, match="Duplicate phase names"):
@@ -53,11 +53,11 @@ class TestPhasedPolicyPhaseNameValidation:
     def test_case_insensitive_collision_rejected(self):
         """Test that phase names differing only by case are rejected."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {"on_error": "continue"},
             "phases": [
-                {"name": "prepare", "audio_filter": {"languages": ["eng"]}},
-                {"name": "Prepare", "audio_filter": {"languages": ["jpn"]}},
+                {"name": "prepare", "keep_audio": {"languages": ["eng"]}},
+                {"name": "Prepare", "keep_audio": {"languages": ["jpn"]}},
             ],
         }
         with pytest.raises(
@@ -68,11 +68,11 @@ class TestPhasedPolicyPhaseNameValidation:
     def test_case_insensitive_collision_mixed_case(self):
         """Test case-insensitive collision with mixed case names."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {"on_error": "continue"},
             "phases": [
-                {"name": "MyPhase", "audio_filter": {"languages": ["eng"]}},
-                {"name": "myPHASE", "audio_filter": {"languages": ["jpn"]}},
+                {"name": "MyPhase", "keep_audio": {"languages": ["eng"]}},
+                {"name": "myPHASE", "keep_audio": {"languages": ["jpn"]}},
             ],
         }
         with pytest.raises(
@@ -83,11 +83,11 @@ class TestPhasedPolicyPhaseNameValidation:
     def test_similar_but_different_names_valid(self):
         """Test that similar but different names are allowed."""
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "config": {"on_error": "continue"},
             "phases": [
-                {"name": "prepare", "audio_filter": {"languages": ["eng"]}},
-                {"name": "prepare1", "audio_filter": {"languages": ["jpn"]}},
+                {"name": "prepare", "keep_audio": {"languages": ["eng"]}},
+                {"name": "prepare1", "keep_audio": {"languages": ["jpn"]}},
                 {"name": "prepares", "track_order": ["video", "audio_main"]},
             ],
         }
@@ -101,8 +101,8 @@ class TestPolicySchemaPostInit:
     def test_case_insensitive_collision_in_dataclass(self):
         """Test that PolicySchema also checks case-insensitive collisions."""
         config = GlobalConfig(
-            audio_language_preference=("eng",),
-            subtitle_language_preference=("eng",),
+            audio_languages=("eng",),
+            subtitle_languages=("eng",),
             commentary_patterns=(),
             on_error=OnErrorMode.CONTINUE,
         )
@@ -111,7 +111,7 @@ class TestPolicySchemaPostInit:
 
         with pytest.raises(ValueError, match="case-insensitive"):
             PolicySchema(
-                schema_version=12,
+                schema_version=13,
                 config=config,
                 phases=(phase1, phase2),
             )
@@ -119,8 +119,8 @@ class TestPolicySchemaPostInit:
     def test_valid_phases_in_dataclass(self):
         """Test that valid phases pass PolicySchema validation."""
         config = GlobalConfig(
-            audio_language_preference=("eng",),
-            subtitle_language_preference=("eng",),
+            audio_languages=("eng",),
+            subtitle_languages=("eng",),
             commentary_patterns=(),
             on_error=OnErrorMode.CONTINUE,
         )
@@ -128,7 +128,7 @@ class TestPolicySchemaPostInit:
         phase2 = PhaseDefinition(name="finalize", track_order=None)
 
         policy = PolicySchema(
-            schema_version=12,
+            schema_version=13,
             config=config,
             phases=(phase1, phase2),
         )

@@ -25,6 +25,7 @@ from vpo.policy.pydantic_models.actions import (
     ActionModel,
     ConditionalRuleModel,
     PluginMetadataReferenceModel,
+    RulesBlockModel,
     SetContainerMetadataActionModel,
     SetDefaultActionModel,
     SetForcedActionModel,
@@ -166,6 +167,7 @@ __all__ = [
     "SetContainerMetadataActionModel",
     "ActionModel",
     "ConditionalRuleModel",
+    "RulesBlockModel",
     # Synthesis
     "ChannelPreferenceModel",
     "PreferenceCriterionModel",

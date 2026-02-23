@@ -21,7 +21,7 @@ from vpo.policy.loader import PolicyValidationError
 @pytest.fixture
 def minimal_policy_content() -> str:
     """Minimal valid policy content."""
-    return """schema_version: 12
+    return """schema_version: 13
 phases:
   - name: test
     container:
@@ -33,7 +33,7 @@ phases:
 def policy_with_comments() -> str:
     """Policy content with YAML comments."""
     return """# Top-level comment
-schema_version: 12  # Schema version comment
+schema_version: 13  # Schema version comment
 # Phase section comment
 phases:
   - name: test  # Phase name comment
@@ -45,7 +45,7 @@ phases:
 @pytest.fixture
 def policy_with_unknown_fields() -> str:
     """Policy content with unknown fields."""
-    return """schema_version: 12
+    return """schema_version: 13
 custom_field: custom_value
 phases:
   - name: test
@@ -144,7 +144,7 @@ class TestPolicyRoundTripEditorLoad:
 
         data = editor.load()
 
-        assert data["schema_version"] == 12
+        assert data["schema_version"] == 13
         assert "phases" in data
 
     def test_preserves_unknown_fields_on_load(self, policy_file_with_unknown):
@@ -183,7 +183,7 @@ class TestPolicyRoundTripEditorLoad:
     def test_raises_on_invalid_yaml_syntax(self, tmp_path):
         """Raises PolicyValidationError for invalid YAML syntax."""
         invalid_file = tmp_path / "invalid.yaml"
-        invalid_file.write_text("schema_version: 12\n  invalid_indent: true")
+        invalid_file.write_text("schema_version: 13\n  invalid_indent: true")
 
         editor = PolicyRoundTripEditor(invalid_file)
 
@@ -207,13 +207,13 @@ class TestPolicyRoundTripEditorSave:
         data = editor.load()
 
         # Update a field
-        data["schema_version"] = 12
+        data["schema_version"] = 13
         editor.save(data)
 
         # Verify by reloading
         editor2 = PolicyRoundTripEditor(policy_file)
         reloaded = editor2.load()
-        assert reloaded["schema_version"] == 12
+        assert reloaded["schema_version"] == 13
 
     def test_preserves_unknown_fields_on_save(self, policy_file_with_unknown):
         """Unknown fields are preserved when saving."""
@@ -221,7 +221,7 @@ class TestPolicyRoundTripEditorSave:
         data = editor.load()
 
         # Update a known field
-        data["schema_version"] = 12
+        data["schema_version"] = 13
         editor.save(data)
 
         # Verify unknown fields preserved
@@ -256,7 +256,7 @@ class TestCommentPreservation:
         data = editor.load()
 
         # Make a minor change
-        data["schema_version"] = 12
+        data["schema_version"] = 13
         editor.save(data)
 
         # Read raw file content
@@ -277,48 +277,48 @@ class TestCommentPreservation:
 class TestFieldAccessors:
     """Tests for field accessor methods."""
 
-    def test_get_set_audio_filter(self):
-        """Test get/set for audio_filter field."""
+    def test_get_set_keep_audio(self):
+        """Test get/set for keep_audio field."""
         data: dict = {}
 
         # Initially None
-        assert PolicyRoundTripEditor.get_audio_filter(data) is None
+        assert PolicyRoundTripEditor.get_keep_audio(data) is None
 
         # Set value
         audio_filter = {"include_languages": ["eng", "jpn"]}
-        PolicyRoundTripEditor.set_audio_filter(data, audio_filter)
-        assert PolicyRoundTripEditor.get_audio_filter(data) == audio_filter
+        PolicyRoundTripEditor.set_keep_audio(data, audio_filter)
+        assert PolicyRoundTripEditor.get_keep_audio(data) == audio_filter
 
         # Remove value
-        PolicyRoundTripEditor.set_audio_filter(data, None)
-        assert PolicyRoundTripEditor.get_audio_filter(data) is None
-        assert "audio_filter" not in data
+        PolicyRoundTripEditor.set_keep_audio(data, None)
+        assert PolicyRoundTripEditor.get_keep_audio(data) is None
+        assert "keep_audio" not in data
 
-    def test_get_set_subtitle_filter(self):
-        """Test get/set for subtitle_filter field."""
+    def test_get_set_keep_subtitles(self):
+        """Test get/set for keep_subtitles field."""
         data: dict = {}
 
-        assert PolicyRoundTripEditor.get_subtitle_filter(data) is None
+        assert PolicyRoundTripEditor.get_keep_subtitles(data) is None
 
         sub_filter = {"include_languages": ["eng"]}
-        PolicyRoundTripEditor.set_subtitle_filter(data, sub_filter)
-        assert PolicyRoundTripEditor.get_subtitle_filter(data) == sub_filter
+        PolicyRoundTripEditor.set_keep_subtitles(data, sub_filter)
+        assert PolicyRoundTripEditor.get_keep_subtitles(data) == sub_filter
 
-        PolicyRoundTripEditor.set_subtitle_filter(data, None)
-        assert "subtitle_filter" not in data
+        PolicyRoundTripEditor.set_keep_subtitles(data, None)
+        assert "keep_subtitles" not in data
 
-    def test_get_set_attachment_filter(self):
-        """Test get/set for attachment_filter field."""
+    def test_get_set_filter_attachments(self):
+        """Test get/set for filter_attachments field."""
         data: dict = {}
 
-        assert PolicyRoundTripEditor.get_attachment_filter(data) is None
+        assert PolicyRoundTripEditor.get_filter_attachments(data) is None
 
         attach_filter = {"remove_all": True}
-        PolicyRoundTripEditor.set_attachment_filter(data, attach_filter)
-        assert PolicyRoundTripEditor.get_attachment_filter(data) == attach_filter
+        PolicyRoundTripEditor.set_filter_attachments(data, attach_filter)
+        assert PolicyRoundTripEditor.get_filter_attachments(data) == attach_filter
 
-        PolicyRoundTripEditor.set_attachment_filter(data, None)
-        assert "attachment_filter" not in data
+        PolicyRoundTripEditor.set_filter_attachments(data, None)
+        assert "filter_attachments" not in data
 
     def test_get_set_container(self):
         """Test get/set for container field."""
@@ -333,18 +333,21 @@ class TestFieldAccessors:
         PolicyRoundTripEditor.set_container(data, None)
         assert "container" not in data
 
-    def test_get_set_conditional(self):
-        """Test get/set for conditional field."""
+    def test_get_set_rules(self):
+        """Test get/set for rules field."""
         data: dict = {}
 
-        assert PolicyRoundTripEditor.get_conditional(data) is None
+        assert PolicyRoundTripEditor.get_rules(data) is None
 
-        conditional = [{"name": "rule1", "when": {"exists": {"track_type": "audio"}}}]
-        PolicyRoundTripEditor.set_conditional(data, conditional)
-        assert PolicyRoundTripEditor.get_conditional(data) == conditional
+        rules = {
+            "match": "first",
+            "items": [{"name": "rule1", "when": "exists(audio)"}],
+        }
+        PolicyRoundTripEditor.set_rules(data, rules)
+        assert PolicyRoundTripEditor.get_rules(data) == rules
 
-        PolicyRoundTripEditor.set_conditional(data, None)
-        assert "conditional" not in data
+        PolicyRoundTripEditor.set_rules(data, None)
+        assert "rules" not in data
 
     def test_get_set_audio_synthesis(self):
         """Test get/set for audio_synthesis field."""
@@ -365,7 +368,7 @@ class TestFieldAccessors:
 
         assert PolicyRoundTripEditor.get_transcode(data) is None
 
-        transcode = {"video": {"target_codec": "hevc"}}
+        transcode = {"video": {"to": "hevc"}}
         PolicyRoundTripEditor.set_transcode(data, transcode)
         assert PolicyRoundTripEditor.get_transcode(data) == transcode
 
@@ -380,7 +383,7 @@ class TestFieldAccessors:
         assert PolicyRoundTripEditor.get_video_transcode(data) is None
 
         # Set creates parent if needed
-        video_config = {"target_codec": "hevc", "crf": 20}
+        video_config = {"to": "hevc", "crf": 20}
         PolicyRoundTripEditor.set_video_transcode(data, video_config)
         assert PolicyRoundTripEditor.get_video_transcode(data) == video_config
         assert "transcode" in data
@@ -395,7 +398,7 @@ class TestFieldAccessors:
 
         assert PolicyRoundTripEditor.get_audio_transcode(data) is None
 
-        audio_config = {"transcode_to": "aac", "transcode_bitrate": "192k"}
+        audio_config = {"to": "aac", "bitrate": "192k"}
         PolicyRoundTripEditor.set_audio_transcode(data, audio_config)
         assert PolicyRoundTripEditor.get_audio_transcode(data) == audio_config
 
@@ -406,8 +409,8 @@ class TestFieldAccessors:
         """Test that video and audio transcode can coexist."""
         data: dict = {}
 
-        video_config = {"target_codec": "hevc"}
-        audio_config = {"transcode_to": "aac"}
+        video_config = {"to": "hevc"}
+        audio_config = {"to": "aac"}
 
         PolicyRoundTripEditor.set_video_transcode(data, video_config)
         PolicyRoundTripEditor.set_audio_transcode(data, audio_config)
@@ -478,7 +481,7 @@ class TestUtilityMethods:
         """Test get_unknown_fields identifies non-standard fields."""
         editor_cls = PolicyRoundTripEditor
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [],
             "custom_field": "value",
             "another_unknown": 42,
@@ -492,7 +495,7 @@ class TestUtilityMethods:
         """Test get_unknown_fields returns empty for valid-only fields."""
         editor_cls = PolicyRoundTripEditor
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [],
             "config": {"on_error": "skip"},
         }
@@ -517,7 +520,7 @@ class TestUtilityMethods:
 
     def test_get_phase_names_handles_missing(self):
         """Test get_phase_names returns empty list when no phases."""
-        data: dict = {"schema_version": 12}
+        data: dict = {"schema_version": 13}
 
         names = PolicyRoundTripEditor.get_phase_names(data)
 
@@ -539,13 +542,13 @@ class TestUtilityMethods:
 
     def test_is_phased_policy_true(self):
         """Test is_phased_policy returns True when phases present."""
-        data = {"schema_version": 12, "phases": []}
+        data = {"schema_version": 13, "phases": []}
 
         assert PolicyRoundTripEditor.is_phased_policy(data) is True
 
     def test_is_phased_policy_false(self):
         """Test is_phased_policy returns False when no phases."""
-        data = {"schema_version": 12, "audio_filter": {}}
+        data = {"schema_version": 13, "keep_audio": {}}
 
         assert PolicyRoundTripEditor.is_phased_policy(data) is False
 
@@ -563,8 +566,8 @@ class TestKnownPolicyFields:
         expected = {
             "schema_version",
             "track_order",
-            "audio_language_preference",
-            "subtitle_language_preference",
+            "audio_languages",
+            "subtitle_languages",
             "commentary_patterns",
             "default_flags",
             "transcode",
@@ -575,16 +578,16 @@ class TestKnownPolicyFields:
     def test_contains_expected_v3_fields(self):
         """KNOWN_POLICY_FIELDS includes V3+ fields."""
         expected = {
-            "audio_filter",
-            "subtitle_filter",
-            "attachment_filter",
+            "keep_audio",
+            "keep_subtitles",
+            "filter_attachments",
             "container",
         }
         assert expected.issubset(KNOWN_POLICY_FIELDS)
 
     def test_contains_expected_v4_v5_fields(self):
-        """KNOWN_POLICY_FIELDS includes V4-V5 fields."""
-        expected = {"conditional", "audio_synthesis"}
+        """KNOWN_POLICY_FIELDS includes rules and audio_synthesis fields."""
+        expected = {"rules", "audio_synthesis"}
         assert expected.issubset(KNOWN_POLICY_FIELDS)
 
     def test_contains_expected_phased_fields(self):

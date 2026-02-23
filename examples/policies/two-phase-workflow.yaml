@@ -1,4 +1,4 @@
-# Two Phase Workflow Policy (V12)
+# Two Phase Workflow Policy (V13)
 # Demonstrates the cleanup-then-organize pattern
 #
 # A common two-phase approach: first strip unwanted tracks, then sort
@@ -7,21 +7,21 @@
 #
 # Usage:
 #   vpo policy run -p two-phase-workflow.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Cleanup & Organize
 description: Two-phase pattern — filter unwanted tracks, then sort and set defaults.
 
 config:
   # Language preferences are used by default_flags to pick which track
   # gets the "default" flag. First match wins (eng preferred over jpn).
-  audio_language_preference: [eng, jpn, und]
-  subtitle_language_preference: [eng, jpn]
+  audio_languages: [eng, jpn, und]
+  subtitle_languages: [eng, jpn]
   on_error: skip
 
 phases:
   # Phase 1: Remove tracks not matching preferred languages.
   - name: cleanup
-    audio_filter:
+    keep_audio:
       languages: [eng, jpn, und]
       minimum: 1  # Always keep at least 1 audio track
 
@@ -34,11 +34,11 @@ phases:
         #   error            - fail with InsufficientTracksError
         mode: keep_first
 
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, jpn]
       preserve_forced: true  # Keep forced subs regardless of language
 
-    attachment_filter:
+    filter_attachments:
       # Remove all attachments (fonts, cover art, etc.).
       # Warning: removing fonts may break styled ASS/SSA subtitles.
       remove_all: true

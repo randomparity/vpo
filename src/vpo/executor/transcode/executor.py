@@ -30,6 +30,7 @@ from vpo.policy.types import (
     QualitySettings,
     SkipCondition,
     TranscodePolicyConfig,
+    VideoTranscodeConfig,
 )
 from vpo.policy.video_analysis import (
     HDRType,
@@ -161,6 +162,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         policy: TranscodePolicyConfig,
         skip_if: SkipCondition | None = None,
         audio_config: AudioTranscodeConfig | None = None,
+        video_config: VideoTranscodeConfig | None = None,
         hardware_acceleration: HardwareAccelConfig | None = None,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
@@ -172,8 +174,11 @@ class TranscodeExecutor(FFmpegExecutorBase):
         Args:
             policy: Transcode policy configuration.
             skip_if: V6 skip condition for conditional transcoding.
-            audio_config: V6 audio transcode config for preserve_codecs handling.
-            hardware_acceleration: V6 hardware acceleration config.
+            audio_config: Audio transcode config for preserve handling.
+            video_config: V13 flattened video transcode config. If provided,
+                hardware_acceleration is derived from it.
+            hardware_acceleration: Legacy hardware acceleration config.
+                Ignored if video_config is provided.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
             backup_original: Whether to backup original after success.
@@ -184,7 +189,12 @@ class TranscodeExecutor(FFmpegExecutorBase):
         self.policy = policy
         self.skip_if = skip_if
         self.audio_config = audio_config
-        self.hardware_acceleration = hardware_acceleration
+        self.video_config = video_config
+        # Derive hardware_acceleration from video_config if available
+        if video_config is not None:
+            self.hardware_acceleration = video_config.to_hardware_accel_config()
+        else:
+            self.hardware_acceleration = hardware_acceleration
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
         self.backup_original = backup_original
@@ -744,6 +754,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
     def execute(
         self,
         plan: TranscodePlan,
+        video_config: VideoTranscodeConfig | None = None,
         quality: QualitySettings | None = None,
         target_codec: str | None = None,
         scale_algorithm: str | None = None,
@@ -756,14 +767,21 @@ class TranscodeExecutor(FFmpegExecutorBase):
 
         Args:
             plan: The transcode plan to execute.
-            quality: V6 quality settings (optional).
-            target_codec: V6 target codec (optional).
+            video_config: V13 flattened video config. If provided, quality
+                is derived from it and target_codec defaults to video_config.to.
+            quality: Legacy quality settings (ignored if video_config provided).
+            target_codec: Target codec (defaults to video_config.to if provided).
             scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
             ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
         Returns:
             TranscodeResult with success status.
         """
+        # Derive legacy types from video_config if provided
+        if video_config is not None:
+            quality = video_config.to_quality_settings()
+            if target_codec is None:
+                target_codec = video_config.to
         # V6 skip condition check
         if plan.should_skip:
             logger.info(

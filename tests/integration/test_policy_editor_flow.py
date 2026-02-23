@@ -44,14 +44,14 @@ async def test_app_with_policies(tmp_path):
 
     # Create test policy with unknown fields and comments (phased format)
     test_policy = policy_dir / "integration-test.yaml"
-    test_policy.write_text("""schema_version: 12
+    test_policy.write_text("""schema_version: 13
 
 config:
   # Audio language preferences
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
   commentary_patterns:
@@ -112,15 +112,15 @@ async def test_full_policy_edit_flow(aiohttp_client, test_app_with_policies):
     policy_data = await get_response.json()
     assert policy_data["name"] == "integration-test"
     # For phased policies, config fields are under 'config'
-    assert policy_data["config"]["audio_language_preference"] == ["eng", "und"]
+    assert policy_data["config"]["audio_languages"] == ["eng", "und"]
 
     # Step 2: Make changes to the policy
     # API requires flat fields plus optional phases/config for phased policies
     updated_data = {
         # Required flat fields (API backwards compatibility)
         "track_order": policy_data["phases"][0]["track_order"],
-        "audio_language_preference": ["jpn", "eng", "und"],  # Changed
-        "subtitle_language_preference": ["fra", "eng"],  # Changed
+        "audio_languages": ["jpn", "eng", "und"],  # Changed
+        "subtitle_languages": ["fra", "eng"],  # Changed
         "commentary_patterns": ["commentary", "director", "cast"],  # Added one
         "default_flags": policy_data["phases"][0]["default_flags"],
         "transcode": None,
@@ -128,8 +128,8 @@ async def test_full_policy_edit_flow(aiohttp_client, test_app_with_policies):
         # Phased policy fields
         "phases": policy_data["phases"],
         "config": {
-            "audio_language_preference": ["jpn", "eng", "und"],
-            "subtitle_language_preference": ["fra", "eng"],
+            "audio_languages": ["jpn", "eng", "und"],
+            "subtitle_languages": ["fra", "eng"],
             "commentary_patterns": ["commentary", "director", "cast"],
         },
         "last_modified_timestamp": policy_data["last_modified"],
@@ -144,8 +144,8 @@ async def test_full_policy_edit_flow(aiohttp_client, test_app_with_policies):
     assert put_response.status == 200
 
     saved_data = await put_response.json()
-    assert saved_data["config"]["audio_language_preference"] == ["jpn", "eng", "und"]
-    assert saved_data["config"]["subtitle_language_preference"] == ["fra", "eng"]
+    assert saved_data["config"]["audio_languages"] == ["jpn", "eng", "und"]
+    assert saved_data["config"]["subtitle_languages"] == ["fra", "eng"]
     assert saved_data["config"]["commentary_patterns"] == [
         "commentary",
         "director",
@@ -157,8 +157,8 @@ async def test_full_policy_edit_flow(aiohttp_client, test_app_with_policies):
     assert reload_response.status == 200
 
     reloaded_data = await reload_response.json()
-    assert reloaded_data["config"]["audio_language_preference"] == ["jpn", "eng", "und"]
-    assert reloaded_data["config"]["subtitle_language_preference"] == ["fra", "eng"]
+    assert reloaded_data["config"]["audio_languages"] == ["jpn", "eng", "und"]
+    assert reloaded_data["config"]["subtitle_languages"] == ["fra", "eng"]
     assert reloaded_data["config"]["commentary_patterns"] == [
         "commentary",
         "director",
@@ -197,7 +197,7 @@ async def test_unknown_field_preservation_through_multiple_edits(
         "phases": data1["phases"],
         "config": {
             **data1["config"],
-            "audio_language_preference": ["fra"],
+            "audio_languages": ["fra"],
         },
         "last_modified_timestamp": data1["last_modified"],
     }
@@ -217,7 +217,7 @@ async def test_unknown_field_preservation_through_multiple_edits(
         "phases": data2["phases"],
         "config": {
             **data2["config"],
-            "subtitle_language_preference": ["deu"],
+            "subtitle_languages": ["deu"],
         },
         "last_modified_timestamp": data2["last_modified"],
     }
@@ -275,10 +275,8 @@ async def test_comment_preservation(aiohttp_client, test_app_with_policies):
 
     update_data = {
         "track_order": data["track_order"],
-        "audio_language_preference": ["ita", "eng"],  # Only change this
-        "subtitle_language_preference": data[
-            "subtitle_language_preference"
-        ],  # Unchanged
+        "audio_languages": ["ita", "eng"],  # Only change this
+        "subtitle_languages": data["subtitle_languages"],  # Unchanged
         "commentary_patterns": data["commentary_patterns"],  # Unchanged
         "default_flags": data["default_flags"],  # Unchanged
         "transcode": None,
@@ -371,7 +369,7 @@ async def test_concurrent_modification_detection(
         "phases": data1["phases"],
         "config": {
             **data1["config"],
-            "audio_language_preference": ["spa", "eng"],
+            "audio_languages": ["spa", "eng"],
         },
         "last_modified_timestamp": data1["last_modified"],
     }
@@ -388,7 +386,7 @@ async def test_concurrent_modification_detection(
         "phases": data2["phases"],
         "config": {
             **data2["config"],
-            "audio_language_preference": ["por", "eng"],
+            "audio_languages": ["por", "eng"],
         },
         "last_modified_timestamp": data2["last_modified"],  # Stale!
     }
@@ -421,12 +419,12 @@ async def test_policy_with_transcription_section(aiohttp_client, tmp_path):
 
     # Create policy with transcription (phased format)
     policy = policy_dir / "transcription-test.yaml"
-    policy.write_text("""schema_version: 12
+    policy.write_text("""schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -533,8 +531,8 @@ async def test_successful_save_returns_changed_fields(
     # Note: Include flat field for change detection (DiffSummary compares flat fields)
     updated_data = {
         # Flat field for change detection
-        "audio_language_preference": ["und", "eng"],  # Reordered from ["eng", "und"]
-        "subtitle_language_preference": data["config"]["subtitle_language_preference"],
+        "audio_languages": ["und", "eng"],  # Reordered from ["eng", "und"]
+        "subtitle_languages": data["config"]["subtitle_languages"],
         "commentary_patterns": data["config"]["commentary_patterns"],
         "track_order": data["phases"][0]["track_order"],
         "default_flags": data["phases"][0]["default_flags"],
@@ -542,7 +540,7 @@ async def test_successful_save_returns_changed_fields(
         "phases": data["phases"],
         "config": {
             **data["config"],
-            "audio_language_preference": ["und", "eng"],  # Same change
+            "audio_languages": ["und", "eng"],  # Same change
         },
         "last_modified_timestamp": data["last_modified"],
     }
@@ -566,7 +564,7 @@ async def test_successful_save_returns_changed_fields(
     # Verify at least one change was detected
     assert len(saved_data["changed_fields"]) > 0
 
-    # Find the audio_language_preference change
+    # Find the audio_languages change
     audio_change = next(
         (c for c in saved_data["changed_fields"] if "audio" in c["field"].lower()),
         None,
@@ -594,8 +592,8 @@ async def test_validation_error_returns_errors_array(
     # Send multiple invalid fields
     invalid_data = {
         "track_order": [],  # Invalid: empty
-        "audio_language_preference": [],  # Invalid: empty
-        "subtitle_language_preference": data["subtitle_language_preference"],
+        "audio_languages": [],  # Invalid: empty
+        "subtitle_languages": data["subtitle_languages"],
         "commentary_patterns": data["commentary_patterns"],
         "default_flags": data["default_flags"],
         "transcode": None,
@@ -618,7 +616,7 @@ async def test_validation_error_returns_errors_array(
     assert "errors" in error_data
     assert isinstance(error_data["errors"], list)
 
-    # Should have multiple errors (track_order and audio_language_preference)
+    # Should have multiple errors (track_order and audio_languages)
     assert len(error_data["errors"]) >= 2
 
     # Each error should have field and message
@@ -648,7 +646,7 @@ async def test_invalid_language_code_error_response(
         "phases": data["phases"],
         "config": {
             **data["config"],
-            "audio_language_preference": ["english"],  # Invalid: not ISO 639-2
+            "audio_languages": ["english"],  # Invalid: not ISO 639-2
         },
         "last_modified_timestamp": data["last_modified"],
     }
@@ -744,8 +742,8 @@ async def test_validation_details_count(aiohttp_client, test_app_with_policies):
     # Make multiple fields invalid
     invalid_data = {
         "track_order": [],
-        "audio_language_preference": [],
-        "subtitle_language_preference": [],
+        "audio_languages": [],
+        "subtitle_languages": [],
         "commentary_patterns": data["commentary_patterns"],
         "default_flags": data["default_flags"],
         "transcode": None,
@@ -827,8 +825,8 @@ async def test_validate_endpoint_returns_errors_when_invalid(
     # Send invalid data to validate endpoint
     invalid_data = {
         "track_order": [],  # Invalid: empty
-        "audio_language_preference": ["invalid_code"],  # Invalid
-        "subtitle_language_preference": data["subtitle_language_preference"],
+        "audio_languages": ["invalid_code"],  # Invalid
+        "subtitle_languages": data["subtitle_languages"],
         "commentary_patterns": data["commentary_patterns"],
         "default_flags": data["default_flags"],
         "transcode": None,
@@ -876,8 +874,8 @@ async def test_validate_endpoint_does_not_modify_file(
     # Send modified data to validate endpoint
     modified_data = {
         "track_order": ["video"],  # Changed from original
-        "audio_language_preference": ["jpn", "eng"],  # Changed order
-        "subtitle_language_preference": ["fra"],  # Changed
+        "audio_languages": ["jpn", "eng"],  # Changed order
+        "subtitle_languages": ["fra"],  # Changed
         "commentary_patterns": ["new_pattern"],  # Changed
         "default_flags": data["default_flags"],
         "transcode": None,

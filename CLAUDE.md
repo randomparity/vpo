@@ -205,10 +205,10 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 
 ## Policy Schema
 
-The current policy schema version is **V12** (defined in `policy/loader.py` as `SCHEMA_VERSION`). **Only V12 is supported**—no backward compatibility with older schema versions.
+The current policy schema version is **V13** (defined in `policy/loader.py` as `SCHEMA_VERSION`). **Only V13 is supported**—no backward compatibility with older schema versions.
 
-Key V12 features:
-- Track filtering (audio_filter, subtitle_filter, attachment_filter), container conversion
+Key V13 features:
+- Track filtering (keep_audio, keep_subtitles, filter_attachments), container conversion
 - Conditional rules (when/then/else conditions and actions)
 - Audio synthesis (create downmixed or re-encoded tracks)
 - Video/audio transcoding with skip conditions, quality settings, hardware acceleration
@@ -224,36 +224,32 @@ Key V12 features:
 
 **Example policy with transcoding:**
 ```yaml
-schema_version: 12
+schema_version: 13
 config:
   on_error: skip
 phases:
   - name: transcode
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
         skip_if:
           codec_matches: [hevc, h265]
           resolution_within: 1080p
           bitrate_under: 15M
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        crf: 20
+        preset: medium
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs: [truehd, dts-hd, flac]
-        transcode_to: aac
-        transcode_bitrate: 192k
+        preserve: [truehd, dts-hd, flac]
+        to: aac
+        bitrate: 192k
 ```
 
 **Key modules:**
-- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.)
+- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.) — V13 field names: `to`, `crf`, `preset`, `max_resolution`, `scale_algorithm`, `hw`, `hw_fallback`, `preserve`, `bitrate`
 - `policy/pydantic_models.py`: Pydantic models for YAML parsing and validation
 - `policy/conversion.py`: Functions to convert Pydantic models to frozen dataclasses
 - `policy/loader.py`: High-level loading functions (load_policy, load_policy_from_dict)
@@ -265,7 +261,8 @@ phases:
 
 Phased policies support conditional execution through four mechanisms:
 
-1. **skip_when**: Skip phase based on file characteristics (OR logic - any match skips)
+1. **skip_when**: Skip phase based on file characteristics. Requires a `mode` field (`any` = OR logic, skip if any condition matches; `all` = AND logic, skip only if all match)
+   - `mode: any` or `mode: all` - required, controls matching logic
    - `video_codec: [hevc, h265]` - skip if video codec matches
    - `file_size_under: 1GB` - skip if file under threshold
    - `resolution_under: 1080p` - skip if resolution below
@@ -287,7 +284,7 @@ Phased policies support conditional execution through four mechanisms:
 
 **Example phased policy with conditionals:**
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: normalize
     container:
@@ -295,19 +292,22 @@ phases:
 
   - name: transcode
     skip_when:
+      mode: any
       video_codec: [hevc, h265]
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
 
   - name: verify
     run_if:
       phase_modified: transcode
     depends_on: [transcode]
-    conditional:
-      - name: check
-        when: { exists: { track_type: video } }
-        then: [{ warn: "Transcode complete" }]
+    rules:
+      match: first
+      items:
+        - name: check
+          when: { exists: { track_type: video } }
+          then: [{ warn: "Transcode complete" }]
 ```
 
 **Transcode edge cases:**

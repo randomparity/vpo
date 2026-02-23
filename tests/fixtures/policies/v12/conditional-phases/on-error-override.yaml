@@ -1,10 +1,10 @@
 # Test policy for per-phase on_error override
 # T004: Error handling override test policy
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng, und]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng, und]
   on_error: continue
 
 phases:
@@ -21,13 +21,11 @@ phases:
   - name: transcode
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 20
+        to: hevc
+        crf: 20
     on_error: stop
 
   - name: cleanup
-    attachment_filter:
+    filter_attachments:
       remove_all: true
     on_error: continue

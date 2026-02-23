@@ -34,8 +34,8 @@ def test_file(tmp_path):
 def global_config():
     """Create a GlobalConfig for testing."""
     return GlobalConfig(
-        audio_language_preference=("eng", "und"),
-        subtitle_language_preference=("eng",),
+        audio_languages=("eng", "und"),
+        subtitle_languages=("eng",),
         commentary_patterns=("commentary", "director"),
         on_error=OnErrorMode.CONTINUE,
     )
@@ -45,7 +45,7 @@ def global_config():
 def policy(global_config):
     """Create a PolicySchema for testing."""
     return PolicySchema(
-        schema_version=12,
+        schema_version=13,
         config=global_config,
         phases=(PhaseDefinition(name="test"),),
     )

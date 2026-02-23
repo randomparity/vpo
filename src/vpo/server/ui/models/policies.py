@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from vpo.policy.loader import SCHEMA_VERSION
+
 
 @dataclass
 class PoliciesContext:
@@ -41,17 +43,17 @@ class PolicyEditorContext:
         description: Optional policy description.
         category: Optional category for filtering/grouping.
         track_order: List of track type strings.
-        audio_language_preference: List of ISO 639-2 codes.
-        subtitle_language_preference: List of ISO 639-2 codes.
+        audio_languages: List of ISO 639-2 codes.
+        subtitle_languages: List of ISO 639-2 codes.
         commentary_patterns: List of regex patterns.
         default_flags: Default flags configuration dict.
         transcode: Transcode configuration dict, or None.
         transcription: Transcription configuration dict, or None.
-        audio_filter: Audio filter configuration (V3+), or None.
-        subtitle_filter: Subtitle filter configuration (V3+), or None.
-        attachment_filter: Attachment filter configuration (V3+), or None.
-        container: Container configuration (V3+), or None.
-        conditional: Conditional rules list (V4+), or None.
+        keep_audio: Audio filter configuration, or None.
+        keep_subtitles: Subtitle filter configuration, or None.
+        filter_attachments: Attachment filter configuration, or None.
+        container: Container configuration, or None.
+        rules: Conditional rules config (match/items), or None.
         audio_synthesis: Audio synthesis config list (V5+), or None.
         workflow: Workflow configuration (V9+), or None.
         unknown_fields: List of field names not in known schema.
@@ -64,8 +66,8 @@ class PolicyEditorContext:
     last_modified: str
     schema_version: int
     track_order: list[str]
-    audio_language_preference: list[str]
-    subtitle_language_preference: list[str]
+    audio_languages: list[str]
+    subtitle_languages: list[str]
     commentary_patterns: list[str]
     default_flags: dict
     transcode: dict | None
@@ -74,13 +76,13 @@ class PolicyEditorContext:
     display_name: str | None = None
     description: str | None = None
     category: str | None = None
-    # V3+ fields (036-v9-policy-editor)
-    audio_filter: dict | None = None
-    subtitle_filter: dict | None = None
-    attachment_filter: dict | None = None
+    # Track filtering fields
+    keep_audio: dict | None = None
+    keep_subtitles: dict | None = None
+    filter_attachments: dict | None = None
     container: dict | None = None
-    # V4+ fields
-    conditional: list | None = None
+    # Conditional rules
+    rules: dict | None = None
     # V5+ fields
     audio_synthesis: list | None = None
     # V9+ fields
@@ -91,6 +93,52 @@ class PolicyEditorContext:
     # Unknown fields for warning banner
     unknown_fields: list[str] | None = None
     parse_error: str | None = None
+
+    @classmethod
+    def from_policy_data(
+        cls,
+        *,
+        name: str,
+        filename: str,
+        file_path: str,
+        last_modified: str,
+        policy_data: dict,
+        unknown_fields: list[str] | None = None,
+        parse_error: str | None = None,
+    ) -> PolicyEditorContext:
+        """Build context from raw policy data dict.
+
+        Centralizes the mapping from a raw YAML dict to editor context,
+        used by GET, PUT, and POST policy API handlers.
+        """
+        return cls(
+            name=name,
+            filename=filename,
+            file_path=file_path,
+            last_modified=last_modified,
+            schema_version=policy_data.get("schema_version", SCHEMA_VERSION),
+            track_order=policy_data.get("track_order", []),
+            audio_languages=policy_data.get("audio_languages", []),
+            subtitle_languages=policy_data.get("subtitle_languages", []),
+            commentary_patterns=policy_data.get("commentary_patterns", []),
+            default_flags=policy_data.get("default_flags", {}),
+            transcode=policy_data.get("transcode"),
+            transcription=policy_data.get("transcription"),
+            display_name=policy_data.get("name"),
+            description=policy_data.get("description"),
+            category=policy_data.get("category"),
+            keep_audio=policy_data.get("keep_audio"),
+            keep_subtitles=policy_data.get("keep_subtitles"),
+            filter_attachments=policy_data.get("filter_attachments"),
+            container=policy_data.get("container"),
+            rules=policy_data.get("rules"),
+            audio_synthesis=policy_data.get("audio_synthesis"),
+            workflow=policy_data.get("workflow"),
+            phases=policy_data.get("phases"),
+            config=policy_data.get("config"),
+            unknown_fields=unknown_fields,
+            parse_error=parse_error,
+        )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -104,19 +152,19 @@ class PolicyEditorContext:
             "description": self.description,
             "category": self.category,
             "track_order": self.track_order,
-            "audio_language_preference": self.audio_language_preference,
-            "subtitle_language_preference": self.subtitle_language_preference,
+            "audio_languages": self.audio_languages,
+            "subtitle_languages": self.subtitle_languages,
             "commentary_patterns": self.commentary_patterns,
             "default_flags": self.default_flags,
             "transcode": self.transcode,
             "transcription": self.transcription,
-            # V3+ fields
-            "audio_filter": self.audio_filter,
-            "subtitle_filter": self.subtitle_filter,
-            "attachment_filter": self.attachment_filter,
+            # Track filtering fields
+            "keep_audio": self.keep_audio,
+            "keep_subtitles": self.keep_subtitles,
+            "filter_attachments": self.filter_attachments,
             "container": self.container,
-            # V4+ fields
-            "conditional": self.conditional,
+            # Conditional rules
+            "rules": self.rules,
             # V5+ fields
             "audio_synthesis": self.audio_synthesis,
             # V9+ fields
@@ -142,36 +190,36 @@ class PolicyEditorRequest:
 
     Attributes:
         track_order: Updated track ordering.
-        audio_language_preference: Updated audio language preferences.
-        subtitle_language_preference: Updated subtitle language preferences.
+        audio_languages: Updated audio language preferences.
+        subtitle_languages: Updated subtitle language preferences.
         commentary_patterns: Updated commentary detection patterns.
         default_flags: Updated default flags configuration.
         transcode: Updated transcode settings, or None.
         transcription: Updated transcription settings, or None.
-        audio_filter: Audio filter configuration (V3+), or None.
-        subtitle_filter: Subtitle filter configuration (V3+), or None.
-        attachment_filter: Attachment filter configuration (V3+), or None.
-        container: Container configuration (V3+), or None.
-        conditional: Conditional rules list (V4+), or None.
+        keep_audio: Audio filter configuration, or None.
+        keep_subtitles: Subtitle filter configuration, or None.
+        filter_attachments: Attachment filter configuration, or None.
+        container: Container configuration, or None.
+        rules: Conditional rules config (match/items), or None.
         audio_synthesis: Audio synthesis config list (V5+), or None.
         workflow: Workflow configuration (V9+), or None.
         last_modified_timestamp: ISO-8601 UTC timestamp for optimistic locking.
     """
 
     track_order: list[str]
-    audio_language_preference: list[str]
-    subtitle_language_preference: list[str]
+    audio_languages: list[str]
+    subtitle_languages: list[str]
     commentary_patterns: list[str]
     default_flags: dict
     transcode: dict | None
     transcription: dict | None
-    # V3+ fields (036-v9-policy-editor)
-    audio_filter: dict | None
-    subtitle_filter: dict | None
-    attachment_filter: dict | None
+    # Track filtering fields
+    keep_audio: dict | None
+    keep_subtitles: dict | None
+    filter_attachments: dict | None
     container: dict | None
-    # V4+ fields
-    conditional: list | None
+    # Conditional rules
+    rules: dict | None
     # V5+ fields
     audio_synthesis: list | None
     # V9+ fields
@@ -218,12 +266,12 @@ class PolicyEditorRequest:
             first_phase = phases[0] if phases else {}
             track_order = data.get("track_order", first_phase.get("track_order", []))
             audio_lang = data.get(
-                "audio_language_preference",
-                config.get("audio_language_preference", []),
+                "audio_languages",
+                config.get("audio_languages", []),
             )
             subtitle_lang = data.get(
-                "subtitle_language_preference",
-                config.get("subtitle_language_preference", []),
+                "subtitle_languages",
+                config.get("subtitle_languages", []),
             )
             commentary = data.get(
                 "commentary_patterns",
@@ -235,17 +283,17 @@ class PolicyEditorRequest:
 
             return cls(
                 track_order=track_order,
-                audio_language_preference=audio_lang,
-                subtitle_language_preference=subtitle_lang,
+                audio_languages=audio_lang,
+                subtitle_languages=subtitle_lang,
                 commentary_patterns=commentary,
                 default_flags=default_flags,
                 transcode=data.get("transcode"),
                 transcription=data.get("transcription"),
-                audio_filter=data.get("audio_filter"),
-                subtitle_filter=data.get("subtitle_filter"),
-                attachment_filter=data.get("attachment_filter"),
+                keep_audio=data.get("keep_audio"),
+                keep_subtitles=data.get("keep_subtitles"),
+                filter_attachments=data.get("filter_attachments"),
                 container=data.get("container"),
-                conditional=data.get("conditional"),
+                rules=data.get("rules"),
                 audio_synthesis=data.get("audio_synthesis"),
                 workflow=data.get("workflow"),
                 phases=phases,
@@ -259,8 +307,8 @@ class PolicyEditorRequest:
         # Legacy format: flat fields required (still needs phases though)
         required_fields = [
             "track_order",
-            "audio_language_preference",
-            "subtitle_language_preference",
+            "audio_languages",
+            "subtitle_languages",
             "commentary_patterns",
             "default_flags",
         ]
@@ -271,19 +319,19 @@ class PolicyEditorRequest:
 
         return cls(
             track_order=data["track_order"],
-            audio_language_preference=data["audio_language_preference"],
-            subtitle_language_preference=data["subtitle_language_preference"],
+            audio_languages=data["audio_languages"],
+            subtitle_languages=data["subtitle_languages"],
             commentary_patterns=data["commentary_patterns"],
             default_flags=data["default_flags"],
             transcode=data.get("transcode"),
             transcription=data.get("transcription"),
-            # V3+ fields
-            audio_filter=data.get("audio_filter"),
-            subtitle_filter=data.get("subtitle_filter"),
-            attachment_filter=data.get("attachment_filter"),
+            # Track filtering fields
+            keep_audio=data.get("keep_audio"),
+            keep_subtitles=data.get("keep_subtitles"),
+            filter_attachments=data.get("filter_attachments"),
             container=data.get("container"),
-            # V4+ fields
-            conditional=data.get("conditional"),
+            # Conditional rules
+            rules=data.get("rules"),
             # V5+ fields
             audio_synthesis=data.get("audio_synthesis"),
             # V9+ fields
@@ -316,7 +364,7 @@ class PolicyEditorRequest:
             Dictionary in PolicySchema format with phases.
         """
         result: dict = {
-            "schema_version": 12,
+            "schema_version": SCHEMA_VERSION,
             "phases": self.phases,
         }
         if self.config is not None:
@@ -324,8 +372,8 @@ class PolicyEditorRequest:
         else:
             # Build config from legacy fields
             result["config"] = {
-                "audio_language_preference": self.audio_language_preference,
-                "subtitle_language_preference": self.subtitle_language_preference,
+                "audio_languages": self.audio_languages,
+                "subtitle_languages": self.subtitle_languages,
                 "commentary_patterns": self.commentary_patterns,
                 "on_error": "continue",  # Default
             }
@@ -335,15 +383,17 @@ class PolicyEditorRequest:
     def _to_legacy_policy_dict(self) -> dict:
         """Convert to flat policy dictionary format.
 
+        Note: V13 requires phased format. This method wraps flat fields
+        into a single phase for forward compatibility.
+
         Returns:
-            Dictionary in PolicyModel format.
+            Dictionary in PolicyModel format with phases wrapper.
         """
-        # Always use schema_version 12
         result = {
-            "schema_version": 12,
+            "schema_version": SCHEMA_VERSION,
             "track_order": self.track_order,
-            "audio_language_preference": self.audio_language_preference,
-            "subtitle_language_preference": self.subtitle_language_preference,
+            "audio_languages": self.audio_languages,
+            "subtitle_languages": self.subtitle_languages,
             "commentary_patterns": self.commentary_patterns,
             "default_flags": self.default_flags,
         }
@@ -354,22 +404,22 @@ class PolicyEditorRequest:
         if self.transcription is not None:
             result["transcription"] = self.transcription
 
-        # V3+ fields
-        if self.audio_filter is not None:
-            result["audio_filter"] = self.audio_filter
+        # Track filtering fields
+        if self.keep_audio is not None:
+            result["keep_audio"] = self.keep_audio
 
-        if self.subtitle_filter is not None:
-            result["subtitle_filter"] = self.subtitle_filter
+        if self.keep_subtitles is not None:
+            result["keep_subtitles"] = self.keep_subtitles
 
-        if self.attachment_filter is not None:
-            result["attachment_filter"] = self.attachment_filter
+        if self.filter_attachments is not None:
+            result["filter_attachments"] = self.filter_attachments
 
         if self.container is not None:
             result["container"] = self.container
 
-        # V4+ fields
-        if self.conditional is not None:
-            result["conditional"] = self.conditional
+        # Conditional rules
+        if self.rules is not None:
+            result["rules"] = self.rules
 
         # V5+ fields
         if self.audio_synthesis is not None:
@@ -401,7 +451,7 @@ class ValidationErrorItem:
     """A single field-level validation error.
 
     Attributes:
-        field: Dot-notation field path (e.g., 'audio_language_preference[0]').
+        field: Dot-notation field path (e.g., 'audio_languages[0]').
         message: Human-readable error message.
         code: Optional machine-readable error type code.
     """

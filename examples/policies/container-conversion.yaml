@@ -1,4 +1,4 @@
-# Container Conversion Policy (V12)
+# Container Conversion Policy (V13)
 # Convert container format with codec compatibility handling
 #
 # Remuxes files into MKV without re-encoding video or audio. If a codec
@@ -8,7 +8,7 @@
 #
 # Usage:
 #   vpo policy run -p container-conversion.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: MKV Container Conversion
 description: Convert files to MKV with automatic codec compatibility handling.
 

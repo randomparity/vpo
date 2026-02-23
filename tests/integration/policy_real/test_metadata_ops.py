@@ -67,7 +67,7 @@ class TestSetDefaultFlags:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=12,
+            policy_version=13,
             requires_remux=False,
             actions=(
                 PlannedAction(
@@ -119,7 +119,7 @@ class TestSetDefaultFlags:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=12,
+            policy_version=13,
             requires_remux=False,
             actions=(
                 PlannedAction(
@@ -187,7 +187,7 @@ class TestSetDefaultFlags:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=12,
+            policy_version=13,
             requires_remux=False,
             actions=tuple(actions),
         )
@@ -233,7 +233,7 @@ class TestSetTrackMetadata:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=12,
+            policy_version=13,
             requires_remux=False,
             actions=(
                 PlannedAction(
@@ -277,7 +277,7 @@ class TestSetTrackMetadata:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=12,
+            policy_version=13,
             requires_remux=False,
             actions=(
                 PlannedAction(
@@ -315,7 +315,7 @@ class TestPolicyEvaluationWithRealFiles:
         result = introspector.get_file_info(generated_multi_audio)
 
         policy = EvaluationPolicy(
-            audio_language_preference=("eng", "jpn", "fra"),
+            audio_languages=("eng", "jpn", "fra"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
                 set_preferred_audio_default=True,
@@ -354,7 +354,7 @@ class TestPolicyEvaluationWithRealFiles:
         result = introspector.get_file_info(generated_multi_audio)
 
         policy = EvaluationPolicy(
-            audio_language_preference=("jpn", "eng", "fra"),  # Japanese first
+            audio_languages=("jpn", "eng", "fra"),  # Japanese first
             track_order=(
                 TrackType.VIDEO,
                 TrackType.AUDIO_MAIN,

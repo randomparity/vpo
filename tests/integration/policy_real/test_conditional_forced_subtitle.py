@@ -74,23 +74,25 @@ class TestConditionalForcedSubtitle:
         # Create policy with conditional set_forced
         policy_path = tmp_path / "force_subs_policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  subtitle_language_preference: [eng, und]
+  subtitle_languages: [eng, und]
 phases:
   - name: apply
-    conditional:
-      - name: force_english_subs_for_foreign_audio
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        - name: force_english_subs_for_foreign_audio
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 """)
 
         # Introspect the video
@@ -175,23 +177,25 @@ phases:
         # Same policy as above
         policy_path = tmp_path / "force_subs_policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  subtitle_language_preference: [eng, und]
+  subtitle_languages: [eng, und]
 phases:
   - name: apply
-    conditional:
-      - name: force_english_subs_for_foreign_audio
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        - name: force_english_subs_for_foreign_audio
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 """)
 
         result = introspector.get_file_info(video_path)
@@ -254,21 +258,23 @@ phases:
 
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 phases:
   - name: apply
-    conditional:
-      - name: force_english_subs_for_foreign_audio
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        - name: force_english_subs_for_foreign_audio
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 """)
 
         result = introspector.get_file_info(video_path)

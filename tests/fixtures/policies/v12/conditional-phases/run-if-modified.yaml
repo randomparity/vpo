@@ -1,34 +1,35 @@
 # Test policy for run_if condition evaluation
 # T005: run_if test policy
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng, und]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng, und]
   on_error: continue
 
 phases:
   - name: transcode
     skip_when:
+      mode: any
       video_codec: [hevc, h265]
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 20
+        to: hevc
+        crf: 20
 
   - name: verify
     run_if:
       phase_modified: transcode
-    conditional:
-      - name: bitrate_check
-        when:
-          exists:
-            track_type: video
-        then:
-          - warn: "Transcode verification triggered"
+    rules:
+      match: first
+      items:
+        - name: bitrate_check
+          when:
+            exists:
+              track_type: video
+          then:
+            - warn: "Transcode verification triggered"
 
   - name: finalize
-    attachment_filter:
+    filter_attachments:
       remove_all: true

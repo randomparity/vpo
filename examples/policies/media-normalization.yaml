@@ -1,4 +1,4 @@
-# Media Normalization Policy (V12)
+# Media Normalization Policy (V13)
 # Production-ready policy for standardizing media files
 #
 # A 7-phase pipeline that demonstrates conditional phase execution:
@@ -9,15 +9,15 @@
 #
 # Usage:
 #   vpo policy run -p media-normalization.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Full Media Normalization
 description: >-
   Production pipeline: container prep, transcription analysis, track filtering,
   ordering, audio synthesis, HEVC transcoding, and post-transcode verification.
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng, und]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng, und]
   commentary_patterns: [commentary, director, "audio description", cast]
 
   # Global on_error applies to phases that don't override it.
@@ -35,6 +35,7 @@ phases:
   #   audio_codec_exists: truehd - skip if audio codec is present
   - name: prepare
     skip_when:
+      mode: any
       container: [mkv]  # Already MKV — no conversion needed
     container:
       target: mkv
@@ -45,6 +46,7 @@ phases:
   # Skip for short clips (under 5 minutes) — not worth the analysis time.
   - name: analyze
     skip_when:
+      mode: any
       duration_under: 5m
     # Per-phase on_error overrides the global setting.
     # "continue" here means: if transcription fails, log it and move on
@@ -64,7 +66,7 @@ phases:
       clear_all_forced: true    # Remove forced flag from all audio tracks
       clear_all_default: true   # Remove default flag from all audio tracks
       clear_all_titles: false   # Keep existing track titles
-    audio_filter:
+    keep_audio:
       languages: [eng, und]
       minimum: 1
       fallback:
@@ -73,10 +75,10 @@ phases:
       clear_all_forced: true
       clear_all_default: true
       clear_all_titles: false
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, und]
       preserve_forced: false  # Don't preserve forced subs (we cleared forced above)
-    attachment_filter:
+    filter_attachments:
       remove_all: true  # Strip fonts and cover art
 
   # Phase 4: Organize track ordering, set track defaults, apply metadata rules.
@@ -94,38 +96,40 @@ phases:
       set_preferred_audio_default: true
       set_preferred_subtitle_default: false
       # Auto-force and auto-default subtitles when the default audio track's
-      # language doesn't match the audio_language_preference list.
+      # language doesn't match the audio_languages list.
       # Useful for foreign-language content in mixed libraries.
       set_subtitle_forced_when_audio_differs: true
       set_subtitle_default_when_audio_differs: true
-    conditional:
-      # Set video track language from Radarr's metadata (movie original language).
-      - name: sync_video_language_from_radarr
-        when:
-          plugin_metadata:
-            plugin: radarr
-            field: original_language
-            operator: exists
-        then:
-          - set_language:
-              track_type: video
-              from_plugin_metadata:
-                plugin: radarr
-                field: original_language
+    rules:
+      match: first
+      items:
+        # Set video track language from Radarr's metadata (movie original language).
+        - name: sync_video_language_from_radarr
+          when:
+            plugin_metadata:
+              plugin: radarr
+              field: original_language
+              operator: exists
+          then:
+            - set_language:
+                track_type: video
+                from_plugin_metadata:
+                  plugin: radarr
+                  field: original_language
 
-      # Fall back to Sonarr for TV content.
-      - name: sync_video_language_from_sonarr
-        when:
-          plugin_metadata:
-            plugin: sonarr
-            field: original_language
-            operator: exists
-        then:
-          - set_language:
-              track_type: video
-              from_plugin_metadata:
-                plugin: sonarr
-                field: original_language
+        # Fall back to Sonarr for TV content.
+        - name: sync_video_language_from_sonarr
+          when:
+            plugin_metadata:
+              plugin: sonarr
+              field: original_language
+              operator: exists
+          then:
+            - set_language:
+                track_type: video
+                from_plugin_metadata:
+                  plugin: sonarr
+                  field: original_language
 
   # Phase 5: Create an EAC3 5.1 compatibility track from lossless surround sources.
   - name: enhance
@@ -159,23 +163,21 @@ phases:
   # skip_when uses OR logic: skip if ALREADY HEVC or file is small.
   - name: compress
     skip_when:
+      mode: any
       video_codec: [hevc, h265, x265]  # Already in efficient codec
       file_size_under: 500MB            # Small files aren't worth transcoding
     on_error: skip  # If transcode fails, skip remaining phases for this file
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        to: hevc
+        crf: 20
+        preset: medium
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs: [truehd, "dts-hd ma", flac, pcm_s24le, eac3]
-        transcode_to: aac
-        transcode_bitrate: 192k
+        preserve: [truehd, "dts-hd ma", flac, pcm_s24le, eac3]
+        to: aac
+        bitrate: 192k
 
   # Phase 7: Verify transcode completed successfully.
   # run_if: only execute if the named phase actually modified the file.
@@ -184,10 +186,12 @@ phases:
     run_if:
       phase_modified: compress  # Only run if compress changed the file
     depends_on: [compress]      # Skip if compress didn't complete
-    conditional:
-      - name: transcode_complete
-        when:
-          exists:
-            track_type: video
-        then:
-          - warn: "Video transcode completed successfully"
+    rules:
+      match: first
+      items:
+        - name: transcode_complete
+          when:
+            exists:
+              track_type: video
+          then:
+            - warn: "Video transcode completed successfully"

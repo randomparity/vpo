@@ -2,13 +2,13 @@
 
 **Feature**: Visual Policy Editor (024-policy-editor, 036-v9-policy-editor, 037-user-defined-phases)
 **Status**: Production Ready
-**Version**: 3.0 (V3-V12 Schema Support)
+**Version**: 3.0 (V3-V13 Schema Support)
 
 ## Overview
 
-The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor creates V12 policies using the **phased format** (the only supported format). Features include video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, and user-defined phases. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
+The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor creates V13 policies using the **phased format** (the only supported format). Features include video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, and user-defined phases. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
 
-**Note:** All policies must use the V12 phased format with `phases` and optional `config` sections. Flat policy format is no longer supported.
+**Note:** All policies must use the V13 phased format with `phases` and optional `config` sections. Flat policy format is no longer supported.
 
 ## Accessing the Editor
 
@@ -34,7 +34,7 @@ uv run vpo serve --port 8080
 3. Enter a policy name (letters, numbers, dashes, underscores only)
 4. Optionally add a description
 5. Click **Create Policy** to create and open the editor
-6. The new policy is created with schema version 12 and sensible defaults
+6. The new policy is created with schema version 13 and sensible defaults
 
 ## Editor Features
 
@@ -183,7 +183,7 @@ Configure audio transcoding settings.
 
 Configure which tracks to keep, remove, or filter.
 
-**Audio Filter:**
+**Keep Audio:**
 - **Languages** - Keep only tracks with these languages (comma-separated ISO codes)
 - **Fallback Mode** - Action when preferred languages not found:
   - `keep_original` - Keep original audio
@@ -195,12 +195,12 @@ Configure which tracks to keep, remove, or filter.
   - **Include SFX** - Keep sound effects tracks
   - **Include Non-Speech** - Keep non-speech tracks
 
-**Subtitle Filter:**
+**Keep Subtitles:**
 - **Languages** - Keep only subtitles with these languages
 - **Preserve Forced** - Always keep forced subtitles
 - **Remove All** - Remove all subtitle tracks
 
-**Attachment Filter:**
+**Filter Attachments:**
 - **Remove All** - Remove all attachment tracks (fonts, images, etc.)
 
 ### 10. Conditional Rules (V4+)
@@ -315,12 +315,12 @@ Each phase can include any combination of these operations (executed in canonica
 | Operation | Description |
 |-----------|-------------|
 | Container Conversion | Convert container format (mkv, mp4) |
-| Audio Filter | Filter audio tracks by language |
-| Subtitle Filter | Filter subtitle tracks by language |
-| Attachment Filter | Remove attachments |
+| Keep Audio | Filter audio tracks by language |
+| Keep Subtitles | Filter subtitle tracks by language |
+| Filter Attachments | Remove attachments |
 | Track Ordering | Reorder tracks by type |
 | Default Flags | Set default track flags |
-| Conditional Rules | Apply conditional logic |
+| Rules | Apply conditional logic |
 | Audio Synthesis | Create synthesized audio tracks |
 | Transcode | Transcode video/audio |
 | Transcription | Transcription analysis |
@@ -339,16 +339,16 @@ Within each phase, operations execute in the canonical order shown above, regard
 - Visual indicators show insertion point during drag
 - Phase order determines execution sequence
 
-**Example V11 Policy Structure:**
+**Example V13 Policy Structure:**
 ```yaml
-schema_version: 11
+schema_version: 13
 config:
   on_error: skip
 phases:
   - name: cleanup
-    audio_filter:
+    keep_audio:
       languages: [eng, jpn]
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng]
   - name: normalize
     track_order: [video, audio, subtitle]
@@ -356,9 +356,8 @@ phases:
       set_first_video_default: true
   - name: compress
     transcode:
-      target_codec: hevc
-      quality:
-        mode: crf
+      video:
+        to: hevc
         crf: 20
 ```
 
@@ -396,7 +395,7 @@ The policy editor supports `container_metadata` conditions and `set_container_me
 3. Enter the **value** to set — leave empty to clear/delete the tag
 
 **Notes:**
-- Container metadata conditions and actions are available in V12 policies
+- Container metadata conditions and actions are available in V13 policies
 - Field names follow standard validation: must start with a letter, contain only letters/digits/underscores, max 64 characters
 - The value input dynamically shows or hides based on the selected operator
 
@@ -439,7 +438,7 @@ When validation fails, the editor shows detailed errors:
 **Error Display Format:**
 ```text
 2 validation errors found:
-• audio_language_preference[0]: Invalid language code
+• audio_languages[0]: Invalid language code
 • commentary_patterns[1]: Invalid regex pattern
 ```
 
@@ -464,9 +463,9 @@ When validation fails, the editor shows detailed errors:
 
 On successful save, the editor shows what changed:
 
-- **Reordered fields**: "audio_language_preference: eng, jpn -> jpn, eng"
+- **Reordered fields**: "audio_languages: eng, jpn -> jpn, eng"
 - **Added items**: "commentary_patterns: added director"
-- **Removed items**: "audio_language_preference: removed fra"
+- **Removed items**: "audio_languages: removed fra"
 - **Modified values**: "default_flags.clear_other_defaults: true -> false"
 
 This helps you:
@@ -512,7 +511,7 @@ The editor preserves elements not exposed in the UI:
 
 **Before editing:**
 ```yaml
-schema_version: 12
+schema_version: 13
 # This comment will be preserved
 phases:
   - name: organize
@@ -526,14 +525,14 @@ x_my_setting: value
 
 **After editing audio languages:**
 ```yaml
-schema_version: 12
+schema_version: 13
 # This comment will be preserved
 phases:
   - name: organize
     track_order:
       - video
       - audio_main
-    audio_filter:
+    keep_audio:
       languages: [fra, eng]  # Changed
 
 # Custom field (preserved)
