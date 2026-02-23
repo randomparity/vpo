@@ -17,9 +17,10 @@ from vpo.domain import TrackInfo
 from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.types import (
     ConditionalResult,
-    ConditionalRule,
     ContainerMetadataChange,
+    MatchMode,
     RuleEvaluation,
+    RulesConfig,
     SkipFlags,
     TrackFlagChange,
     TrackLanguageChange,
@@ -27,7 +28,7 @@ from vpo.policy.types import (
 
 
 def evaluate_conditional_rules(
-    rules: tuple[ConditionalRule, ...],
+    rules: RulesConfig,
     tracks: list[TrackInfo],
     file_path: Path,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
@@ -37,21 +38,27 @@ def evaluate_conditional_rules(
 ) -> ConditionalResult:
     """Evaluate conditional rules and execute matching actions.
 
-    Rules are evaluated in document order. The first rule whose 'when'
-    condition matches wins, and its 'then' actions are executed.
-    If no rules match and the last rule has an 'else' clause, that
-    else clause is executed.
+    Evaluation behavior depends on the match mode:
+
+    - **FIRST** (first-match-wins): Rules are evaluated in order. The first
+      rule whose 'when' condition matches wins, and its 'then' actions are
+      executed. If no rules match and the last rule has an 'else' clause,
+      that else clause is executed.
+
+    - **ALL** (evaluate all): All rules are evaluated. Every rule whose
+      'when' condition matches has its 'then' actions executed, accumulating
+      skip flags, warnings, and track changes. If no rules match, the last
+      rule's 'else' clause fires (if present).
 
     Args:
-        rules: Tuple of ConditionalRule from EvaluationPolicy.
+        rules: RulesConfig with match mode and rule items.
         tracks: List of TrackInfo from the file.
         file_path: Path to the file being processed.
-        language_results: Optional dict mapping track_id to LanguageAnalysisResult
-            (required for audio_is_multi_language conditions).
-        plugin_metadata: Optional dict of plugin metadata keyed by plugin name
-            (required for plugin_metadata conditions).
+        language_results: Optional dict mapping track_id to LanguageAnalysisResult.
+        plugin_metadata: Optional dict of plugin metadata keyed by plugin name.
         classification_results: Optional dict mapping track_id to
-            TrackClassificationResult (required for is_original/is_dubbed conditions).
+            TrackClassificationResult.
+        container_tags: Optional dict of container-level metadata tags.
 
     Returns:
         ConditionalResult with matched rule, skip flags, warnings, and trace.
@@ -62,8 +69,10 @@ def evaluate_conditional_rules(
     from vpo.policy.actions import ActionContext, execute_actions
     from vpo.policy.conditions import evaluate_condition
 
+    items = rules.items
+
     # Empty rules - return empty result
-    if not rules:
+    if not items:
         return ConditionalResult(
             matched_rule=None,
             matched_branch=None,
@@ -71,6 +80,47 @@ def evaluate_conditional_rules(
             evaluation_trace=(),
         )
 
+    if rules.match == MatchMode.FIRST:
+        return _evaluate_first_match(
+            items,
+            tracks,
+            file_path,
+            language_results,
+            plugin_metadata,
+            classification_results,
+            container_tags,
+            evaluate_condition,
+            ActionContext,
+            execute_actions,
+        )
+    else:
+        return _evaluate_all_match(
+            items,
+            tracks,
+            file_path,
+            language_results,
+            plugin_metadata,
+            classification_results,
+            container_tags,
+            evaluate_condition,
+            ActionContext,
+            execute_actions,
+        )
+
+
+def _evaluate_first_match(
+    rules,
+    tracks,
+    file_path,
+    language_results,
+    plugin_metadata,
+    classification_results,
+    container_tags,
+    evaluate_condition,
+    ActionContext,
+    execute_actions,
+) -> ConditionalResult:
+    """First-match-wins evaluation: stop on first matching rule."""
     evaluation_trace: list[RuleEvaluation] = []
     matched_rule: str | None = None
     matched_branch: Literal["then", "else"] | None = None
@@ -81,7 +131,6 @@ def evaluate_conditional_rules(
     container_metadata_changes: list[ContainerMetadataChange] = []
 
     for i, rule in enumerate(rules):
-        # Evaluate the condition, passing all context for condition types
         result, reason = evaluate_condition(
             rule.when,
             tracks,
@@ -93,19 +142,12 @@ def evaluate_conditional_rules(
         )
 
         if result:
-            # Condition matched - execute then_actions
             evaluation_trace.append(
-                RuleEvaluation(
-                    rule_name=rule.name,
-                    matched=True,
-                    reason=reason,
-                )
+                RuleEvaluation(rule_name=rule.name, matched=True, reason=reason)
             )
-
             matched_rule = rule.name
             matched_branch = "then"
 
-            # Execute actions
             context = ActionContext(
                 file_path=file_path,
                 rule_name=rule.name,
@@ -118,27 +160,15 @@ def evaluate_conditional_rules(
             track_flag_changes = context.track_flag_changes
             track_language_changes = context.track_language_changes
             container_metadata_changes = context.container_metadata_changes
-
-            # First match wins - stop evaluation
             break
-
         else:
-            # Condition didn't match
             evaluation_trace.append(
-                RuleEvaluation(
-                    rule_name=rule.name,
-                    matched=False,
-                    reason=reason,
-                )
+                RuleEvaluation(rule_name=rule.name, matched=False, reason=reason)
             )
-
-            # Check if this is the last rule and has else_actions
             is_last_rule = i == len(rules) - 1
             if is_last_rule and rule.else_actions is not None:
-                # Execute else_actions for the last rule
                 matched_rule = rule.name
                 matched_branch = "else"
-
                 context = ActionContext(
                     file_path=file_path,
                     rule_name=rule.name,
@@ -154,6 +184,104 @@ def evaluate_conditional_rules(
 
     return ConditionalResult(
         matched_rule=matched_rule,
+        matched_branch=matched_branch,
+        warnings=tuple(warnings),
+        evaluation_trace=tuple(evaluation_trace),
+        skip_flags=skip_flags,
+        track_flag_changes=tuple(track_flag_changes),
+        track_language_changes=tuple(track_language_changes),
+        container_metadata_changes=tuple(container_metadata_changes),
+    )
+
+
+def _evaluate_all_match(
+    rules,
+    tracks,
+    file_path,
+    language_results,
+    plugin_metadata,
+    classification_results,
+    container_tags,
+    evaluate_condition,
+    ActionContext,
+    execute_actions,
+) -> ConditionalResult:
+    """All-match evaluation: evaluate every rule, accumulate results."""
+    evaluation_trace: list[RuleEvaluation] = []
+    last_matched_rule: str | None = None
+    matched_branch: Literal["then", "else"] | None = None
+    skip_flags = SkipFlags()
+    warnings: list[str] = []
+    track_flag_changes: list[TrackFlagChange] = []
+    track_language_changes: list[TrackLanguageChange] = []
+    container_metadata_changes: list[ContainerMetadataChange] = []
+    any_matched = False
+
+    for i, rule in enumerate(rules):
+        result, reason = evaluate_condition(
+            rule.when,
+            tracks,
+            language_results,
+            None,
+            plugin_metadata,
+            classification_results,
+            container_tags,
+        )
+
+        if result:
+            any_matched = True
+            evaluation_trace.append(
+                RuleEvaluation(rule_name=rule.name, matched=True, reason=reason)
+            )
+            last_matched_rule = rule.name
+            matched_branch = "then"
+
+            context = ActionContext(
+                file_path=file_path,
+                rule_name=rule.name,
+                tracks=tracks,
+                plugin_metadata=plugin_metadata,
+            )
+            context = execute_actions(rule.then_actions, context)
+            # Accumulate: merge skip flags (OR semantics)
+            skip_flags = SkipFlags(
+                skip_video_transcode=skip_flags.skip_video_transcode
+                or context.skip_flags.skip_video_transcode,
+                skip_audio_transcode=skip_flags.skip_audio_transcode
+                or context.skip_flags.skip_audio_transcode,
+                skip_track_filter=skip_flags.skip_track_filter
+                or context.skip_flags.skip_track_filter,
+            )
+            warnings.extend(context.warnings)
+            track_flag_changes.extend(context.track_flag_changes)
+            track_language_changes.extend(context.track_language_changes)
+            container_metadata_changes.extend(context.container_metadata_changes)
+        else:
+            evaluation_trace.append(
+                RuleEvaluation(rule_name=rule.name, matched=False, reason=reason)
+            )
+
+    # If no rules matched, fire the last rule's else clause (if present)
+    if not any_matched and rules:
+        last_rule = rules[-1]
+        if last_rule.else_actions is not None:
+            last_matched_rule = last_rule.name
+            matched_branch = "else"
+            context = ActionContext(
+                file_path=file_path,
+                rule_name=last_rule.name,
+                tracks=tracks,
+                plugin_metadata=plugin_metadata,
+            )
+            context = execute_actions(last_rule.else_actions, context)
+            skip_flags = context.skip_flags
+            warnings.extend(context.warnings)
+            track_flag_changes.extend(context.track_flag_changes)
+            track_language_changes.extend(context.track_language_changes)
+            container_metadata_changes.extend(context.container_metadata_changes)
+
+    return ConditionalResult(
+        matched_rule=last_matched_rule,
         matched_branch=matched_branch,
         warnings=tuple(warnings),
         evaluation_trace=tuple(evaluation_trace),

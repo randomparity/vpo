@@ -34,7 +34,7 @@ class TestPolicyValidateErrors:
         """Unreadable file returns permission_denied code."""
         # Create a file with no read permissions
         policy_file = tmp_path / "unreadable.yaml"
-        policy_file.write_text("schema_version: 12\n")
+        policy_file.write_text("schema_version: 13\n")
 
         # Skip if running as root (can read anything)
         if os.getuid() == 0:
@@ -56,7 +56,7 @@ class TestPolicyValidateErrors:
         """Invalid YAML syntax returns yaml_syntax_error code."""
         policy_file = tmp_path / "bad_yaml.yaml"
         # Invalid YAML with unclosed bracket
-        bad_yaml = "schema_version: 12\nphases:\n  - name: test\n    bad: [unclosed"
+        bad_yaml = "schema_version: 13\nphases:\n  - name: test\n    bad: [unclosed"
         policy_file.write_text(bad_yaml)
 
         result = _validate_policy(policy_file)
@@ -73,7 +73,7 @@ class TestPolicyValidateErrors:
         policy_file = tmp_path / "invalid_schema.yaml"
         policy_file.write_text(
             """
-schema_version: 12
+schema_version: 13
 config:
   on_error: invalid_value
 phases:
@@ -92,18 +92,20 @@ phases:
         policy_file = tmp_path / "valid.yaml"
         policy_file.write_text(
             """
-schema_version: 12
+schema_version: 13
 config:
   on_error: skip
 phases:
   - name: test
-    conditional:
-      - name: always_pass
-        when:
-          exists:
-            track_type: video
-        then:
-          - warn: "Video exists"
+    rules:
+      match: first
+      items:
+        - name: always_pass
+          when:
+            exists:
+              track_type: video
+          then:
+            - warn: "Video exists"
 """
         )
 

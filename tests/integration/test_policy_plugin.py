@@ -59,8 +59,8 @@ def default_policy() -> EvaluationPolicy:
             TrackType.SUBTITLE_COMMENTARY,
             TrackType.ATTACHMENT,
         ),
-        audio_language_preference=("eng", "und"),
-        subtitle_language_preference=("eng", "und"),
+        audio_languages=("eng", "und"),
+        subtitle_languages=("eng", "und"),
         commentary_patterns=("commentary", "director"),
         default_flags=DefaultFlagsConfig(
             set_first_video_default=True,
@@ -177,7 +177,7 @@ class TestPolicyEngineEvaluationIntegration:
         assert plan is not None
         assert plan.file_id == "test-uuid"
         assert plan.file_path == file_path
-        assert plan.policy_version == 12
+        assert plan.policy_version == 13
 
     def test_evaluate_detects_default_flag_changes(
         self,
@@ -582,8 +582,8 @@ class TestPolicyEngineBackwardsCompatibility:
     ):
         """Plugin should respect language preference like direct evaluator."""
         japanese_policy = EvaluationPolicy(
-            audio_language_preference=("jpn", "eng", "und"),
-            subtitle_language_preference=("eng", "und"),
+            audio_languages=("jpn", "eng", "und"),
+            subtitle_languages=("eng", "und"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
                 set_preferred_audio_default=True,

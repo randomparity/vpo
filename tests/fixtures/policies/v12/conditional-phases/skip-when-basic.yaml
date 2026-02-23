@@ -1,35 +1,33 @@
 # Test policy for skip_when condition evaluation
 # T002: Skip condition test policy
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng, und]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng, und]
   on_error: continue
 
 phases:
   - name: normalize
     container:
       target: mkv
-    audio_filter:
+    keep_audio:
       languages: [eng, und]
 
   - name: transcode
     skip_when:
+      mode: any
       video_codec: [hevc, h265]
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 20
+        to: hevc
+        crf: 20
 
   - name: compress-small
     skip_when:
+      mode: any
       file_size_under: 1GB
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 25
+        to: hevc
+        crf: 25

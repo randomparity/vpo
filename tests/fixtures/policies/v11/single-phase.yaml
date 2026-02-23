@@ -1,17 +1,17 @@
 # Single Phase Policy Fixture
 # Used to test basic phased schema parsing and single phase execution
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng]
   on_error: continue
 
 phases:
   - name: normalize
-    audio_filter:
+    keep_audio:
       languages: [eng, und]
       minimum: 1
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, und]
       preserve_forced: true

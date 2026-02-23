@@ -96,9 +96,7 @@ class TestListPolicies:
     def test_returns_policy_list_response(self, tmp_path: Path):
         """list_policies returns PolicyListResponse."""
         policy_file = tmp_path / "test.yaml"
-        policy_file.write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
-        )
+        policy_file.write_text("schema_version: 13\nphases:\n  - name: test")
 
         with patch("vpo.policy.services.get_default_policy_path", return_value=None):
             result = list_policies(tmp_path)
@@ -131,9 +129,7 @@ class TestListPolicies:
     def test_marks_default_policy(self, tmp_path: Path):
         """list_policies marks default policy."""
         policy_file = tmp_path / "default.yaml"
-        policy_file.write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
-        )
+        policy_file.write_text("schema_version: 13\nphases:\n  - name: test")
 
         with patch(
             "vpo.policy.services.get_default_policy_path", return_value=policy_file
@@ -146,13 +142,13 @@ class TestListPolicies:
     def test_multiple_policies_sorted(self, tmp_path: Path):
         """list_policies returns policies sorted alphabetically."""
         (tmp_path / "zebra.yaml").write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
+            "schema_version: 13\nphases:\n  - name: test"
         )
         (tmp_path / "alpha.yaml").write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
+            "schema_version: 13\nphases:\n  - name: test"
         )
         (tmp_path / "beta.yaml").write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
+            "schema_version: 13\nphases:\n  - name: test"
         )
 
         with patch("vpo.policy.services.get_default_policy_path", return_value=None):
@@ -165,12 +161,10 @@ class TestListPolicies:
     def test_default_policy_sorted_first(self, tmp_path: Path):
         """list_policies sorts default policy first."""
         (tmp_path / "zebra.yaml").write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
+            "schema_version: 13\nphases:\n  - name: test"
         )
         default_file = tmp_path / "alpha.yaml"
-        default_file.write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
-        )
+        default_file.write_text("schema_version: 13\nphases:\n  - name: test")
 
         # Make zebra the default, should appear first despite name
         with patch(
@@ -185,7 +179,7 @@ class TestListPolicies:
     def test_reports_missing_default(self, tmp_path: Path):
         """list_policies reports when configured default is missing."""
         (tmp_path / "test.yaml").write_text(
-            "schema_version: 12\nphases:\n  - name: test\n    conditional: []"
+            "schema_version: 13\nphases:\n  - name: test"
         )
 
         # Configured default doesn't exist

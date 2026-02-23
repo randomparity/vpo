@@ -16,12 +16,12 @@ def policy_file(temp_dir: Path) -> Path:
     policy_path = temp_dir / "test_policy.yaml"
     policy_path.write_text(
         """
-schema_version: 12
+schema_version: 13
 config:
   on_error: skip
 phases:
   - name: apply
-    audio_filter:
+    keep_audio:
       languages: [eng]
 """
     )
@@ -34,12 +34,12 @@ def policy_file_with_fail(temp_dir: Path) -> Path:
     policy_path = temp_dir / "fail_policy.yaml"
     policy_path.write_text(
         """
-schema_version: 12
+schema_version: 13
 config:
   on_error: fail
 phases:
   - name: apply
-    audio_filter:
+    keep_audio:
       languages: [eng]
 """
     )

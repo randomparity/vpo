@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Known policy fields by schema version
 # V1-V2: Base fields
-# V3: audio_filter, subtitle_filter, attachment_filter, container
+# V3: keep_audio, keep_subtitles, filter_attachments, container
 # V4: conditional
 # V5: audio_synthesis
 # V6: transcode (extended with video/audio)
@@ -36,19 +36,19 @@ KNOWN_POLICY_FIELDS = {
     # V1-V2 base fields
     "schema_version",
     "track_order",
-    "audio_language_preference",
-    "subtitle_language_preference",
+    "audio_languages",
+    "subtitle_languages",
     "commentary_patterns",
     "default_flags",
     "transcode",
     "transcription",
     # V3+ fields
-    "audio_filter",
-    "subtitle_filter",
-    "attachment_filter",
+    "keep_audio",
+    "keep_subtitles",
+    "filter_attachments",
     "container",
     # V4+ fields
-    "conditional",
+    "rules",
     # V5+ fields
     "audio_synthesis",
     # V9+ fields
@@ -72,7 +72,7 @@ class PolicyRoundTripEditor:
     Example:
         >>> editor = PolicyRoundTripEditor(Path("~/.vpo/policies/default.yaml"))
         >>> data = editor.load()
-        >>> data['audio_language_preference'] = ['jpn', 'eng']
+        >>> data['audio_languages'] = ['jpn', 'eng']
         >>> editor.save(data)
     """
 
@@ -211,12 +211,12 @@ class PolicyRoundTripEditor:
         return [k for k in data.keys() if k not in KNOWN_POLICY_FIELDS]
 
     # =========================================================================
-    # V3+ Field Accessors (audio_filter, subtitle_filter, attachment_filter, container)
+    # V3+ Field Accessors (keep_audio, keep_subtitles, filter_attachments, container)
     # =========================================================================
 
     @staticmethod
-    def get_audio_filter(data: dict[str, Any]) -> dict[str, Any] | None:
-        """Get audio_filter configuration from policy data (V3+).
+    def get_keep_audio(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get keep_audio configuration from policy data (V3+).
 
         Args:
             data: Policy data dictionary.
@@ -224,24 +224,24 @@ class PolicyRoundTripEditor:
         Returns:
             Audio filter configuration dict or None if not configured.
         """
-        return data.get("audio_filter")
+        return data.get("keep_audio")
 
     @staticmethod
-    def set_audio_filter(data: dict[str, Any], value: dict[str, Any] | None) -> None:
-        """Set audio_filter configuration in policy data (V3+).
+    def set_keep_audio(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set keep_audio configuration in policy data (V3+).
 
         Args:
             data: Policy data dictionary to modify.
             value: Audio filter configuration or None to remove.
         """
         if value is None:
-            data.pop("audio_filter", None)
+            data.pop("keep_audio", None)
         else:
-            data["audio_filter"] = value
+            data["keep_audio"] = value
 
     @staticmethod
-    def get_subtitle_filter(data: dict[str, Any]) -> dict[str, Any] | None:
-        """Get subtitle_filter configuration from policy data (V3+).
+    def get_keep_subtitles(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get keep_subtitles configuration from policy data (V3+).
 
         Args:
             data: Policy data dictionary.
@@ -249,24 +249,24 @@ class PolicyRoundTripEditor:
         Returns:
             Subtitle filter configuration dict or None if not configured.
         """
-        return data.get("subtitle_filter")
+        return data.get("keep_subtitles")
 
     @staticmethod
-    def set_subtitle_filter(data: dict[str, Any], value: dict[str, Any] | None) -> None:
-        """Set subtitle_filter configuration in policy data (V3+).
+    def set_keep_subtitles(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set keep_subtitles configuration in policy data (V3+).
 
         Args:
             data: Policy data dictionary to modify.
             value: Subtitle filter configuration or None to remove.
         """
         if value is None:
-            data.pop("subtitle_filter", None)
+            data.pop("keep_subtitles", None)
         else:
-            data["subtitle_filter"] = value
+            data["keep_subtitles"] = value
 
     @staticmethod
-    def get_attachment_filter(data: dict[str, Any]) -> dict[str, Any] | None:
-        """Get attachment_filter configuration from policy data (V3+).
+    def get_filter_attachments(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get filter_attachments configuration from policy data (V3+).
 
         Args:
             data: Policy data dictionary.
@@ -274,22 +274,22 @@ class PolicyRoundTripEditor:
         Returns:
             Attachment filter configuration dict or None if not configured.
         """
-        return data.get("attachment_filter")
+        return data.get("filter_attachments")
 
     @staticmethod
-    def set_attachment_filter(
+    def set_filter_attachments(
         data: dict[str, Any], value: dict[str, Any] | None
     ) -> None:
-        """Set attachment_filter configuration in policy data (V3+).
+        """Set filter_attachments configuration in policy data (V3+).
 
         Args:
             data: Policy data dictionary to modify.
             value: Attachment filter configuration or None to remove.
         """
         if value is None:
-            data.pop("attachment_filter", None)
+            data.pop("filter_attachments", None)
         else:
-            data["attachment_filter"] = value
+            data["filter_attachments"] = value
 
     @staticmethod
     def get_container(data: dict[str, Any]) -> dict[str, Any] | None:
@@ -317,35 +317,33 @@ class PolicyRoundTripEditor:
             data["container"] = value
 
     # =========================================================================
-    # V4+ Field Accessors (conditional)
+    # Rules Field Accessors (conditional rules)
     # =========================================================================
 
     @staticmethod
-    def get_conditional(data: dict[str, Any]) -> list[dict[str, Any]] | None:
-        """Get conditional rules from policy data (V4+).
+    def get_rules(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get conditional rules config from policy data.
 
         Args:
             data: Policy data dictionary.
 
         Returns:
-            List of conditional rules or None if not configured.
+            Rules config dict (match/items) or None if not configured.
         """
-        return data.get("conditional")
+        return data.get("rules")
 
     @staticmethod
-    def set_conditional(
-        data: dict[str, Any], value: list[dict[str, Any]] | None
-    ) -> None:
-        """Set conditional rules in policy data (V4+).
+    def set_rules(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set conditional rules config in policy data.
 
         Args:
             data: Policy data dictionary to modify.
-            value: List of conditional rules or None to remove.
+            value: Rules config dict (match/items) or None to remove.
         """
         if value is None:
-            data.pop("conditional", None)
+            data.pop("rules", None)
         else:
-            data["conditional"] = value
+            data["rules"] = value
 
     # =========================================================================
     # V5+ Field Accessors (audio_synthesis)

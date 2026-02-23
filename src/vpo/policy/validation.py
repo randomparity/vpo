@@ -20,7 +20,7 @@ class ValidationError:
     """Represents a single validation error with field context.
 
     Attributes:
-        field: Dot-notation field path (e.g., 'audio_language_preference[0]').
+        field: Dot-notation field path (e.g., 'audio_languages[0]').
         message: Human-readable error message.
         code: Optional machine-readable error type code.
     """
@@ -141,8 +141,8 @@ class DiffSummary:
 
         # Fields to compare - typically in config section
         config_fields = [
-            "audio_language_preference",
-            "subtitle_language_preference",
+            "audio_languages",
+            "subtitle_languages",
             "commentary_patterns",
         ]
 

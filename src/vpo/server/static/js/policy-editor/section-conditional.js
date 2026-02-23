@@ -1166,7 +1166,7 @@ export function initConditionalSection(policyData, onUpdate) {
     }
 
     // Internal state - transform from API format (which may use 'conditional' key)
-    let rules = policyData.conditional ? [...policyData.conditional] : []
+    let rules = policyData.rules ? [...policyData.rules] : []
 
     function notifyUpdate() {
         onUpdate(rules.length > 0 ? [...rules] : null)
@@ -1255,7 +1255,7 @@ export function initConditionalSection(policyData, onUpdate) {
          * @param {Object} policyData - Policy data
          */
         refresh(policyData) {
-            rules = policyData.conditional ? [...policyData.conditional] : []
+            rules = policyData.rules ? [...policyData.rules] : []
             renderRules()
         }
     }

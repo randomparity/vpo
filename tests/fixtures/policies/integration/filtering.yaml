@@ -1,24 +1,24 @@
 # Track filtering policy
 # Used for testing track removal/filtering via mkvmerge
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - jpn
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 
 phases:
   - name: apply
-    audio_filter:
+    keep_audio:
       languages:
         - eng
         - jpn
       fallback:
         mode: keep_all
       minimum: 1
-    subtitle_filter:
+    keep_subtitles:
       languages:
         - eng
       preserve_forced: true

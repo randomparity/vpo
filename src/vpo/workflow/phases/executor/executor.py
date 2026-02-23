@@ -402,7 +402,7 @@ class PhaseExecutor:
     ) -> int:
         """Dispatch an operation to the appropriate handler.
 
-        Filter operations (audio_filter, subtitle_filter, attachment_filter) are
+        Filter operations (keep_audio, keep_subtitles, filter_attachments) are
         consolidated: the first filter dispatched executes all filters in one
         pass via execute_with_plan(). Subsequent filter dispatches return 0.
 

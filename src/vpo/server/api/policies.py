@@ -137,10 +137,8 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         last_modified=last_modified,
         schema_version=policy_data.get("schema_version", 2),
         track_order=policy_data.get("track_order", []),
-        audio_language_preference=policy_data.get("audio_language_preference", []),
-        subtitle_language_preference=policy_data.get(
-            "subtitle_language_preference", []
-        ),
+        audio_languages=policy_data.get("audio_languages", []),
+        subtitle_languages=policy_data.get("subtitle_languages", []),
         commentary_patterns=policy_data.get("commentary_patterns", []),
         default_flags=policy_data.get("default_flags", {}),
         transcode=policy_data.get("transcode"),
@@ -149,13 +147,13 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         display_name=policy_data.get("name"),
         description=policy_data.get("description"),
         category=policy_data.get("category"),
-        # V3+ fields (036-v9-policy-editor)
-        audio_filter=policy_data.get("audio_filter"),
-        subtitle_filter=policy_data.get("subtitle_filter"),
-        attachment_filter=policy_data.get("attachment_filter"),
+        # Track filtering fields
+        keep_audio=policy_data.get("keep_audio"),
+        keep_subtitles=policy_data.get("keep_subtitles"),
+        filter_attachments=policy_data.get("filter_attachments"),
         container=policy_data.get("container"),
-        # V4+ fields
-        conditional=policy_data.get("conditional"),
+        # Conditional rules
+        rules=policy_data.get("rules"),
         # V5+ fields
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
@@ -334,10 +332,8 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         last_modified=last_modified,
         schema_version=policy_data.get("schema_version", 2),
         track_order=policy_data.get("track_order", []),
-        audio_language_preference=policy_data.get("audio_language_preference", []),
-        subtitle_language_preference=policy_data.get(
-            "subtitle_language_preference", []
-        ),
+        audio_languages=policy_data.get("audio_languages", []),
+        subtitle_languages=policy_data.get("subtitle_languages", []),
         commentary_patterns=policy_data.get("commentary_patterns", []),
         default_flags=policy_data.get("default_flags", {}),
         transcode=policy_data.get("transcode"),
@@ -346,13 +342,13 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         display_name=policy_data.get("name"),
         description=policy_data.get("description"),
         category=policy_data.get("category"),
-        # V3+ fields (036-v9-policy-editor)
-        audio_filter=policy_data.get("audio_filter"),
-        subtitle_filter=policy_data.get("subtitle_filter"),
-        attachment_filter=policy_data.get("attachment_filter"),
+        # Track filtering fields
+        keep_audio=policy_data.get("keep_audio"),
+        keep_subtitles=policy_data.get("keep_subtitles"),
+        filter_attachments=policy_data.get("filter_attachments"),
         container=policy_data.get("container"),
-        # V4+ fields
-        conditional=policy_data.get("conditional"),
+        # Conditional rules
+        rules=policy_data.get("rules"),
         # V5+ fields
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
@@ -508,8 +504,8 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     policy_data = {
         "schema_version": SCHEMA_VERSION,
         "config": {
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
+            "audio_languages": ["eng"],
+            "subtitle_languages": ["eng"],
         },
         "phases": [
             {
@@ -585,10 +581,8 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         last_modified=last_modified,
         schema_version=created_data.get("schema_version", SCHEMA_VERSION),
         track_order=created_data.get("track_order", []),
-        audio_language_preference=created_data.get("audio_language_preference", []),
-        subtitle_language_preference=created_data.get(
-            "subtitle_language_preference", []
-        ),
+        audio_languages=created_data.get("audio_languages", []),
+        subtitle_languages=created_data.get("subtitle_languages", []),
         commentary_patterns=created_data.get("commentary_patterns", []),
         default_flags=created_data.get("default_flags", {}),
         transcode=created_data.get("transcode"),
@@ -597,11 +591,11 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         display_name=created_data.get("name"),
         description=created_data.get("description"),
         category=created_data.get("category"),
-        audio_filter=created_data.get("audio_filter"),
-        subtitle_filter=created_data.get("subtitle_filter"),
-        attachment_filter=created_data.get("attachment_filter"),
+        keep_audio=created_data.get("keep_audio"),
+        keep_subtitles=created_data.get("keep_subtitles"),
+        filter_attachments=created_data.get("filter_attachments"),
         container=created_data.get("container"),
-        conditional=created_data.get("conditional"),
+        rules=created_data.get("rules"),
         audio_synthesis=created_data.get("audio_synthesis"),
         workflow=created_data.get("workflow"),
         # Phased policy fields

@@ -15,6 +15,8 @@ from vpo.policy.evaluator import (
 from vpo.policy.types import (
     ConditionalRule,
     ExistsCondition,
+    MatchMode,
+    RulesConfig,
     SkipAction,
     SkipFlags,
     SkipType,
@@ -167,6 +169,11 @@ def make_rule(
     )
 
 
+def make_rules(*rules: ConditionalRule) -> RulesConfig:
+    """Wrap rules in a RulesConfig with first-match-wins semantics."""
+    return RulesConfig(match=MatchMode.FIRST, items=rules)
+
+
 # =============================================================================
 # T026: Test single rule matching then branch
 # =============================================================================
@@ -187,7 +194,7 @@ class TestSingleRuleThenBranch:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -206,7 +213,7 @@ class TestSingleRuleThenBranch:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -238,7 +245,7 @@ class TestSingleRuleElseBranch:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -262,7 +269,7 @@ class TestSingleRuleElseBranch:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -283,7 +290,7 @@ class TestMultipleRulesFirstMatchWins:
 
     def test_first_matching_rule_wins(self, basic_tracks: list[TrackInfo]) -> None:
         """First matching rule should execute, subsequent rules ignored."""
-        rules = (
+        rule_items = (
             make_rule(
                 name="Rule 1 - Video exists",
                 condition=make_exists_condition("video"),
@@ -297,7 +304,7 @@ class TestMultipleRulesFirstMatchWins:
         )
 
         result = evaluate_conditional_rules(
-            rules=rules,
+            rules=make_rules(*rule_items),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -312,7 +319,7 @@ class TestMultipleRulesFirstMatchWins:
         self, basic_tracks: list[TrackInfo]
     ) -> None:
         """When first rule fails, second rule should be evaluated."""
-        rules = (
+        rule_items = (
             make_rule(
                 name="Rule 1 - Attachment exists",
                 condition=make_exists_condition("attachment"),  # Will fail
@@ -326,7 +333,7 @@ class TestMultipleRulesFirstMatchWins:
         )
 
         result = evaluate_conditional_rules(
-            rules=rules,
+            rules=make_rules(*rule_items),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -341,7 +348,7 @@ class TestMultipleRulesFirstMatchWins:
         self, basic_tracks: list[TrackInfo]
     ) -> None:
         """Evaluation trace should include all evaluated rules."""
-        rules = (
+        rule_items = (
             make_rule(
                 name="Rule 1 - Attachment exists",
                 condition=make_exists_condition("attachment"),  # Will fail
@@ -355,7 +362,7 @@ class TestMultipleRulesFirstMatchWins:
         )
 
         result = evaluate_conditional_rules(
-            rules=rules,
+            rules=make_rules(*rule_items),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -380,7 +387,7 @@ class TestNoRulesMatching:
         self, basic_tracks: list[TrackInfo]
     ) -> None:
         """When no rules match, result should indicate no match."""
-        rules = (
+        rule_items = (
             make_rule(
                 name="Rule 1 - Attachment exists",
                 condition=make_exists_condition("attachment"),  # Will fail
@@ -389,7 +396,7 @@ class TestNoRulesMatching:
         )
 
         result = evaluate_conditional_rules(
-            rules=rules,
+            rules=make_rules(*rule_items),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -404,7 +411,7 @@ class TestNoRulesMatching:
     ) -> None:
         """When no rules are defined, result should be empty."""
         result = evaluate_conditional_rules(
-            rules=(),
+            rules=make_rules(),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -419,7 +426,7 @@ class TestNoRulesMatching:
         self, basic_tracks: list[TrackInfo]
     ) -> None:
         """When no rules match, last rule's else_actions should execute."""
-        rules = (
+        rule_items = (
             make_rule(
                 name="Rule with else",
                 condition=make_exists_condition("attachment"),  # Will fail
@@ -429,7 +436,7 @@ class TestNoRulesMatching:
         )
 
         result = evaluate_conditional_rules(
-            rules=rules,
+            rules=make_rules(*rule_items),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -516,7 +523,7 @@ class TestSetForcedActionPropagation:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=foreign_audio_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -545,7 +552,7 @@ class TestSetForcedActionPropagation:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -592,7 +599,7 @@ class TestSetForcedActionPropagation:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -619,7 +626,7 @@ class TestSetForcedActionPropagation:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -647,7 +654,7 @@ class TestSetDefaultActionPropagation:
         )
 
         result = evaluate_conditional_rules(
-            rules=(rule,),
+            rules=make_rules(rule),
             tracks=basic_tracks,
             file_path=Path("/test/file.mkv"),
         )
@@ -678,21 +685,23 @@ class TestTrackFlagChangesToPlannedAction:
         # Create a policy with conditional set_forced
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 phases:
   - name: apply
-    conditional:
-      - name: force_english_subs_for_foreign_audio
-        when:
-          not:
-            exists:
-              track_type: audio
-              language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        - name: force_english_subs_for_foreign_audio
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 """)
         policy = load_policy(policy_path)
         eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
@@ -743,19 +752,21 @@ phases:
 
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 phases:
   - name: apply
-    conditional:
-      - name: clear_forced_subs
-        when:
-          exists:
-            track_type: video
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: false
+    rules:
+      match: first
+      items:
+        - name: clear_forced_subs
+          when:
+            exists:
+              track_type: video
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: false
 """)
         policy = load_policy(policy_path)
         eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
@@ -806,19 +817,21 @@ phases:
 
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 phases:
   - name: apply
-    conditional:
-      - name: set_forced_subs
-        when:
-          exists:
-            track_type: video
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+    rules:
+      match: first
+      items:
+        - name: set_forced_subs
+          when:
+            exists:
+              track_type: video
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 """)
         policy = load_policy(policy_path)
         eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)

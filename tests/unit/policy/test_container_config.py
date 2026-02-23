@@ -72,7 +72,7 @@ def make_policy_with_container(
 ) -> EvaluationPolicy:
     """Create a test policy with container configuration."""
     return EvaluationPolicy(
-        schema_version=12,
+        schema_version=13,
         container=ContainerConfig(
             target=target,
             on_incompatible_codec=on_incompatible_codec,
@@ -114,7 +114,7 @@ class TestContainerConfigValidation:
         from vpo.policy.loader import load_policy_from_dict
 
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "apply",
@@ -1099,7 +1099,7 @@ class TestCodecMappingOverrides:
         from vpo.policy.loader import load_policy_from_dict
 
         data = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "convert",

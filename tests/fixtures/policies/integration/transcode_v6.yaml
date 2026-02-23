@@ -1,9 +1,9 @@
 # Transcode policy with skip conditions
 # Used for testing video/audio transcoding operations
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - jpn
 
@@ -15,27 +15,23 @@ phases:
       clear_other_defaults: true
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
         skip_if:
           codec_matches:
             - hevc
             - h265
           resolution_within: 1080p
           bitrate_under: 15M
-        quality:
-          mode: crf
-          crf: 28
-          preset: ultrafast  # Fast for testing
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        crf: 28
+        preset: ultrafast  # Fast for testing
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs:
+        preserve:
           - flac
           - truehd
           - dts-hd
-        transcode_to: aac
-        transcode_bitrate: 128k
+        to: aac
+        bitrate: 128k

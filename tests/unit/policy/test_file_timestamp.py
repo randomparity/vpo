@@ -44,7 +44,7 @@ class TestFileTimestampPolicyParsing:
     def test_minimal_config(self) -> None:
         """Should parse minimal file_timestamp config."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -64,7 +64,7 @@ class TestFileTimestampPolicyParsing:
     def test_preserve_mode(self) -> None:
         """Should parse preserve mode correctly."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -83,7 +83,7 @@ class TestFileTimestampPolicyParsing:
     def test_release_date_mode_with_fallback(self) -> None:
         """Should parse release_date mode with custom fallback."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -106,7 +106,7 @@ class TestFileTimestampPolicyParsing:
     def test_now_mode(self) -> None:
         """Should parse now mode correctly."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -125,7 +125,7 @@ class TestFileTimestampPolicyParsing:
     def test_invalid_mode_rejected(self) -> None:
         """Should reject invalid mode values."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -142,7 +142,7 @@ class TestFileTimestampPolicyParsing:
     def test_invalid_fallback_rejected(self) -> None:
         """Should reject invalid fallback values."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -159,7 +159,7 @@ class TestFileTimestampPolicyParsing:
     def test_invalid_date_source_rejected(self) -> None:
         """Should reject invalid date_source values."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -185,7 +185,7 @@ class TestFileTimestampOperationType:
     def test_phase_reports_file_timestamp_operation(self) -> None:
         """Phase with file_timestamp should report FILE_TIMESTAMP operation."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -205,7 +205,7 @@ class TestFileTimestampOperationType:
     def test_phase_without_file_timestamp_no_operation(self) -> None:
         """Phase without file_timestamp should not report FILE_TIMESTAMP."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "test",
@@ -227,7 +227,7 @@ class TestFileTimestampWithOtherOperations:
     def test_with_container_conversion(self) -> None:
         """Should work alongside container conversion."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "remux",
@@ -249,13 +249,13 @@ class TestFileTimestampWithOtherOperations:
     def test_with_transcode(self) -> None:
         """Should work alongside transcode operations."""
         policy_dict = {
-            "schema_version": 12,
+            "schema_version": 13,
             "phases": [
                 {
                     "name": "transcode",
                     "transcode": {
                         "video": {
-                            "target_codec": "hevc",
+                            "to": "hevc",
                         }
                     },
                     "file_timestamp": {

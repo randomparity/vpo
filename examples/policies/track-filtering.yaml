@@ -1,4 +1,4 @@
-# Track Filtering Policy (V12)
+# Track Filtering Policy (V13)
 # Comprehensive audio, subtitle, and attachment filtering
 #
 # Demonstrates all available track filtering options including multi-language
@@ -6,22 +6,22 @@
 #
 # Usage:
 #   vpo policy run -p track-filtering.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Multi-Language Track Filter
 description: Filter to English, Japanese, French, and German audio with music track preservation.
 
 config:
   # Language preferences determine default flag priority (first = highest).
   # These are ISO 639-2/B codes: eng, jpn, fra, deu, spa, ita, por, rus, etc.
-  audio_language_preference: [eng, jpn, fra, deu, und]
-  subtitle_language_preference: [eng, jpn, fra]
+  audio_languages: [eng, jpn, fra, deu, und]
+  subtitle_languages: [eng, jpn, fra]
   on_error: skip
 
 phases:
   # Phase 1: Filter tracks by language and type.
   - name: filter
     # Audio filter removes tracks whose language doesn't match the list.
-    audio_filter:
+    keep_audio:
       languages: [eng, jpn, fra, deu, und]  # Keep these languages
       minimum: 1  # Guaranteed minimum — never remove the last audio track
 
@@ -42,13 +42,13 @@ phases:
       keep_non_speech_tracks: false               # Remove non-speech tracks
 
     # Subtitle filter removes subtitle tracks not matching these languages.
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, jpn, fra]
       preserve_forced: true  # Always keep forced subs (foreign-text translations)
       remove_all: false      # Set to true to strip ALL subtitles regardless of language
 
     # Attachment filter controls fonts, cover art, and other embedded files.
-    attachment_filter:
+    filter_attachments:
       remove_all: false  # Keep attachments (fonts needed for styled subtitles)
 
   # Phase 2: Organize remaining tracks.
@@ -63,4 +63,4 @@ phases:
 
     default_flags:
       set_first_video_default: true
-      set_preferred_audio_default: true  # Uses audio_language_preference order
+      set_preferred_audio_default: true  # Uses audio_languages order

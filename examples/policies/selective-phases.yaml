@@ -1,4 +1,4 @@
-# Selective Phases Policy (V12)
+# Selective Phases Policy (V13)
 # Designed for CLI phase selection
 #
 # Contains three independent phases that can be run individually or combined.
@@ -11,13 +11,13 @@
 #
 # This pattern lets you keep a single policy file with multiple "modes"
 # instead of maintaining separate files for each workflow.
-schema_version: 12
+schema_version: 13
 name: Selective Phase Toolkit
 description: Three independent phases for CLI selection — quick metadata fix, full normalization, or archive-quality transcoding.
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng]
   on_error: skip
 
 phases:
@@ -38,13 +38,13 @@ phases:
   #
   # Usage: vpo policy run -p selective-phases.yaml --phases full-normalize video.mkv
   - name: full-normalize
-    audio_filter:
+    keep_audio:
       languages: [eng, und]
       minimum: 1
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng]
       preserve_forced: true
-    attachment_filter:
+    filter_attachments:
       remove_all: true  # Strip fonts and cover art
     track_order:
       - video
@@ -66,20 +66,16 @@ phases:
   - name: archive
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
         skip_if:
           codec_matches: [hevc, h265]  # Don't re-encode already-HEVC files
-        quality:
-          mode: crf
-          crf: 18        # Near-lossless quality (lower = better, 18 is very high)
-          preset: slow   # Slower encoding = better compression efficiency
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        crf: 18        # Near-lossless quality (lower = better, 18 is very high)
+        preset: slow   # Slower encoding = better compression efficiency
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs: [truehd, dts-hd, flac]  # Keep all lossless audio
-        transcode_to: aac
-        transcode_bitrate: 256k  # Higher bitrate for archival quality
+        preserve: [truehd, dts-hd, flac]  # Keep all lossless audio
+        to: aac
+        bitrate: 256k  # Higher bitrate for archival quality

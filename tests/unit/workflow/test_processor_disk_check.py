@@ -28,14 +28,10 @@ def make_mock_phase_result() -> PhaseResult:
 def make_minimal_policy() -> PolicySchema:
     """Create a minimal policy for testing."""
     return PolicySchema(
-        schema_version=12,
+        schema_version=13,
         phases=(
             PhaseDefinition(
                 name="test",
-                conditional=None,
-                transcription=None,
-                transcode=None,
-                container=None,
             ),
         ),
         config=GlobalConfig(),

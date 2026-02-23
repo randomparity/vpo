@@ -1,4 +1,4 @@
-# Sonarr Metadata-Driven TV Policy (V12)
+# Sonarr Metadata-Driven TV Policy (V13)
 #
 # Demonstrates using Sonarr plugin metadata in policy conditions and actions.
 # Requires the sonarr-metadata plugin to be configured in ~/.vpo/config.toml.
@@ -21,7 +21,7 @@
 #
 # Usage:
 #   vpo policy run -p sonarr-metadata.yaml /path/to/tv/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Sonarr TV Pipeline
 description: >-
   Metadata-driven TV processing using Sonarr for anime detection,
@@ -29,8 +29,8 @@ description: >-
 
 config:
   # Japanese included for anime content alongside English.
-  audio_language_preference: [eng, jpn, und]
-  subtitle_language_preference: [eng, jpn]
+  audio_languages: [eng, jpn, und]
+  subtitle_languages: [eng, jpn]
   commentary_patterns: [commentary, director, "audio description"]
   on_error: continue
 
@@ -38,6 +38,7 @@ phases:
   # Phase 1: Container normalization.
   - name: prepare
     skip_when:
+      mode: any
       container: [mkv]
     container:
       target: mkv
@@ -48,91 +49,93 @@ phases:
   # Use Sonarr metadata to set video language, handle anime vs. standard
   # TV differently, and force subtitles for foreign-language series.
   - name: metadata
-    conditional:
-      # Set the video track language from Sonarr's original_language field.
-      - name: set-video-language
-        when:
-          plugin_metadata:
-            plugin: sonarr
-            field: original_language
-            operator: exists
-        then:
-          - set_language:
-              track_type: video
-              from_plugin_metadata:
-                plugin: sonarr
-                field: original_language
+    rules:
+      match: first
+      items:
+        # Set the video track language from Sonarr's original_language field.
+        - name: set-video-language
+          when:
+            plugin_metadata:
+              plugin: sonarr
+              field: original_language
+              operator: exists
+          then:
+            - set_language:
+                track_type: video
+                from_plugin_metadata:
+                  plugin: sonarr
+                  field: original_language
 
-      # For anime series: force English subtitles and set them as default.
-      # Anime is identified by Sonarr's series_type field (standard/anime/daily).
-      - name: force-subs-for-anime
-        when:
-          and:
-            - plugin_metadata:
-                plugin: sonarr
-                field: series_type
-                operator: eq
-                value: anime
-            - exists:
-                track_type: subtitle
-                language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-          - set_default:
-              track_type: subtitle
-              language: eng
-              value: true
-
-      # For non-anime foreign shows: force English subtitles when the
-      # original language isn't English. Uses nested "and" + "not" conditions.
-      - name: force-subs-for-foreign-shows
-        when:
-          and:
-            - plugin_metadata:
-                plugin: sonarr
-                field: original_language
-                operator: neq
-                value: eng
-            - not:
-                plugin_metadata:
+        # For anime series: force English subtitles and set them as default.
+        # Anime is identified by Sonarr's series_type field (standard/anime/daily).
+        - name: force-subs-for-anime
+          when:
+            and:
+              - plugin_metadata:
                   plugin: sonarr
                   field: series_type
                   operator: eq
                   value: anime
-            - exists:
+              - exists:
+                  track_type: subtitle
+                  language: eng
+          then:
+            - set_forced:
                 track_type: subtitle
                 language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
+                value: true
+            - set_default:
+                track_type: subtitle
+                language: eng
+                value: true
 
-      # Warn about unmonitored series — these may be stale.
-      - name: warn-unmonitored
-        when:
-          plugin_metadata:
-            plugin: sonarr
-            field: monitored
-            operator: eq
-            value: false
-        then:
-          - warn: "Series is unmonitored in Sonarr: {filename}"
+        # For non-anime foreign shows: force English subtitles when the
+        # original language isn't English. Uses nested "and" + "not" conditions.
+        - name: force-subs-for-foreign-shows
+          when:
+            and:
+              - plugin_metadata:
+                  plugin: sonarr
+                  field: original_language
+                  operator: neq
+                  value: eng
+              - not:
+                  plugin_metadata:
+                    plugin: sonarr
+                    field: series_type
+                    operator: eq
+                    value: anime
+              - exists:
+                  track_type: subtitle
+                  language: eng
+          then:
+            - set_forced:
+                track_type: subtitle
+                language: eng
+                value: true
 
-      # Warn about very long-running series (100+ episodes).
-      # These might benefit from a separate, more aggressive compression policy.
-      - name: warn-large-series
-        when:
-          plugin_metadata:
-            plugin: sonarr
-            field: total_episode_count
-            operator: gte
-            value: 100
-        then:
-          - warn: "Large series (100+ episodes), consider dedicated policy: {filename}"
+        # Warn about unmonitored series — these may be stale.
+        - name: warn-unmonitored
+          when:
+            plugin_metadata:
+              plugin: sonarr
+              field: monitored
+              operator: eq
+              value: false
+          then:
+            - warn: "Series is unmonitored in Sonarr: {filename}"
+
+        # Warn about very long-running series (100+ episodes).
+        # These might benefit from a separate, more aggressive compression policy.
+        - name: warn-large-series
+          when:
+            plugin_metadata:
+              plugin: sonarr
+              field: total_episode_count
+              operator: gte
+              value: 100
+          then:
+            - warn: "Large series (100+ episodes), consider dedicated policy: {filename}"
 
   # Phase 3: Transcoding with anime-aware skip logic.
   #
@@ -141,50 +144,49 @@ phases:
   # (handled by a dedicated anime policy).
   - name: compress
     skip_when:
+      mode: any
       video_codec: [hevc, h265, x265]
       file_size_under: 300MB  # Lower threshold for TV episodes (shorter than movies)
     on_error: skip
-    conditional:
-      # Skip video transcode for anime — animated content needs
-      # tune=animation and different CRF values.
-      - name: skip-anime-transcode
-        when:
-          plugin_metadata:
-            plugin: sonarr
-            field: series_type
-            operator: eq
-            value: anime
-        then:
-          - skip_video_transcode: true
+    rules:
+      match: first
+      items:
+        # Skip video transcode for anime — animated content needs
+        # tune=animation and different CRF values.
+        - name: skip-anime-transcode
+          when:
+            plugin_metadata:
+              plugin: sonarr
+              field: series_type
+              operator: eq
+              value: anime
+          then:
+            - skip_video_transcode: true
 
-      # Skip transcode for episodes tagged "4k" in Sonarr.
-      - name: preserve-4k-tagged
-        when:
-          plugin_metadata:
-            plugin: sonarr
-            field: tags
-            operator: contains
-            value: "4k"
-        then:
-          - skip_video_transcode: true
+        # Skip transcode for episodes tagged "4k" in Sonarr.
+        - name: preserve-4k-tagged
+          when:
+            plugin_metadata:
+              plugin: sonarr
+              field: tags
+              operator: contains
+              value: "4k"
+          then:
+            - skip_video_transcode: true
 
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 22      # Slightly higher CRF than movies — TV tolerates more compression
-          preset: medium
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        to: hevc
+        crf: 22      # Slightly higher CRF than movies — TV tolerates more compression
+        preset: medium
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs: [truehd, "dts-hd ma", flac, eac3]
-        transcode_to: aac
-        transcode_bitrate: 128k  # Lower bitrate for TV (stereo dialog is common)
+        preserve: [truehd, "dts-hd ma", flac, eac3]
+        to: aac
+        bitrate: 128k  # Lower bitrate for TV (stereo dialog is common)
 
   # Phase 4: Track cleanup and ordering.
   #
@@ -192,15 +194,15 @@ phases:
   # Note: language filtering applies to all series — the jpn in the list ensures
   # anime dual-audio tracks are preserved.
   - name: organize
-    audio_filter:
+    keep_audio:
       languages: [eng, jpn, und]
       minimum: 1
       fallback:
         mode: content_language
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, jpn]
       preserve_forced: true
-    attachment_filter:
+    filter_attachments:
       remove_all: false  # Keep fonts — anime often has styled ASS subtitles
     track_order:
       - video

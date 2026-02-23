@@ -1,4 +1,4 @@
-# Audio Synthesis Policy (V12)
+# Audio Synthesis Policy (V13)
 # Create compatibility audio tracks from lossless sources
 #
 # Generates new audio tracks by downmixing/transcoding existing lossless sources.
@@ -10,12 +10,12 @@
 #
 # Usage:
 #   vpo policy run -p audio-synthesis.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Audio Compatibility Tracks
 description: Create AAC stereo and EAC3 5.1 tracks from lossless sources for device compatibility.
 
 config:
-  audio_language_preference: [eng, und]
+  audio_languages: [eng, und]
   on_error: skip
 
 phases:

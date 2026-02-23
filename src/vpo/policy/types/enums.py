@@ -99,6 +99,17 @@ class OnErrorMode(Enum):
     FAIL = "fail"  # Stop entire batch processing
 
 
+class MatchMode(Enum):
+    """How rules in a conditional block are matched.
+
+    Controls whether rule evaluation stops after the first match
+    or continues through all rules.
+    """
+
+    FIRST = "first"  # Stop after first matching rule (first-match-wins)
+    ALL = "all"  # Evaluate all rules, accumulate results
+
+
 class PhaseOutcome(Enum):
     """Outcome of a phase after execution or skip evaluation.
 
@@ -144,6 +155,7 @@ __all__ = [
     "ActionType",
     "OperationType",
     "OnErrorMode",
+    "MatchMode",
     "PhaseOutcome",
     "SkipReasonType",
     # Constants

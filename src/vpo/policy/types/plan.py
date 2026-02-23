@@ -54,11 +54,16 @@ class SkipReason:
 class PhaseSkipCondition:
     """Conditions for skipping a phase based on file characteristics.
 
-    All specified conditions use OR logic - if ANY condition matches,
-    the phase is skipped. Unspecified conditions (None) are not evaluated.
+    The mode field controls how multiple conditions are combined:
+    - 'any': phase is skipped if ANY condition matches (OR logic, default)
+    - 'all': phase is skipped only if ALL conditions match (AND logic)
 
+    Unspecified conditions (None) are not evaluated.
     This is different from SkipCondition which is for transcode operations.
     """
+
+    mode: Literal["any", "all"] = "any"
+    """How to combine multiple skip conditions: 'any' (OR) or 'all' (AND)."""
 
     video_codec: tuple[str, ...] | None = None
     """Skip if video codec matches any in this list (case-insensitive)."""

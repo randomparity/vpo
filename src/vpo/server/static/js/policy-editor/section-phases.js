@@ -9,20 +9,20 @@
  * - Real-time YAML preview updates
  *
  * Operation types in canonical order:
- * container, audio_filter, subtitle_filter, attachment_filter,
- * track_order, default_flags, conditional, audio_synthesis, transcode,
+ * container, keep_audio, keep_subtitles, filter_attachments,
+ * track_order, default_flags, rules, audio_synthesis, transcode,
  * transcription, file_timestamp
  */
 
 // Valid operation types in canonical execution order
 const OPERATION_TYPES = [
     { id: 'container', label: 'Container Conversion', description: 'Convert container format' },
-    { id: 'audio_filter', label: 'Audio Filter', description: 'Filter audio tracks by language' },
-    { id: 'subtitle_filter', label: 'Subtitle Filter', description: 'Filter subtitle tracks by language' },
-    { id: 'attachment_filter', label: 'Attachment Filter', description: 'Remove attachments' },
+    { id: 'keep_audio', label: 'Audio Filter', description: 'Filter audio tracks by language' },
+    { id: 'keep_subtitles', label: 'Subtitle Filter', description: 'Filter subtitle tracks by language' },
+    { id: 'filter_attachments', label: 'Attachment Filter', description: 'Remove attachments' },
     { id: 'track_order', label: 'Track Ordering', description: 'Reorder tracks by type' },
     { id: 'default_flags', label: 'Default Flags', description: 'Set default track flags' },
-    { id: 'conditional', label: 'Conditional Rules', description: 'Apply conditional logic' },
+    { id: 'rules', label: 'Conditional Rules', description: 'Apply conditional logic' },
     { id: 'audio_synthesis', label: 'Audio Synthesis', description: 'Create synthesized audio tracks' },
     { id: 'transcode', label: 'Transcode', description: 'Transcode video/audio' },
     { id: 'transcription', label: 'Transcription', description: 'Transcription analysis' },
@@ -312,6 +312,13 @@ export function initPhasesSection(policyData, onUpdate) {
                 <label class="form-label">Skip When:</label>
                 <div class="skip-when-fields">
                     <div class="filter-row">
+                        <label class="form-label-inline">Match Mode:</label>
+                        <select class="form-select form-select-small skip-when-mode">
+                            <option value="any" ${(phase.skip_when?.mode || 'any') === 'any' ? 'selected' : ''}>Any (skip if any match)</option>
+                            <option value="all" ${(phase.skip_when?.mode || 'any') === 'all' ? 'selected' : ''}>All (skip only if all match)</option>
+                        </select>
+                    </div>
+                    <div class="filter-row">
                         <label class="form-label-inline">Video Codec:</label>
                         <input type="text" class="form-input form-input-small skip-when-video-codec"
                                placeholder="e.g., hevc, h265"
@@ -361,6 +368,7 @@ export function initPhasesSection(policyData, onUpdate) {
         const dependsOnInput = condExecContent.querySelector('.phase-depends-on')
         const runIfTypeSelect = condExecContent.querySelector('.phase-run-if-type')
         const runIfValueInput = condExecContent.querySelector('.phase-run-if-value')
+        const skipWhenMode = condExecContent.querySelector('.skip-when-mode')
         const skipVideoCodec = condExecContent.querySelector('.skip-when-video-codec')
         const skipAudioCodec = condExecContent.querySelector('.skip-when-audio-codec')
         const skipContainer = condExecContent.querySelector('.skip-when-container')
@@ -412,7 +420,12 @@ export function initPhasesSection(policyData, onUpdate) {
             const dur = skipDuration.value.trim()
             if (dur) skipWhen.duration_under = dur
 
-            phases[index].skip_when = Object.keys(skipWhen).length > 0 ? skipWhen : null
+            if (Object.keys(skipWhen).length > 0) {
+                skipWhen.mode = skipWhenMode.value || 'any'
+                phases[index].skip_when = skipWhen
+            } else {
+                phases[index].skip_when = null
+            }
             notifyUpdate()
         }
 
@@ -420,6 +433,7 @@ export function initPhasesSection(policyData, onUpdate) {
             el.addEventListener('input', collectSkipWhen)
         })
         skipResolution.addEventListener('change', collectSkipWhen)
+        skipWhenMode.addEventListener('change', collectSkipWhen)
 
         // Name input change
         nameInput.addEventListener('blur', () => {
@@ -506,12 +520,12 @@ export function initPhasesSection(policyData, onUpdate) {
         // Check if phase has this operation configured
         switch (opId) {
         case 'container': return !!phase.container
-        case 'audio_filter': return !!phase.audio_filter
-        case 'subtitle_filter': return !!phase.subtitle_filter
-        case 'attachment_filter': return !!phase.attachment_filter
+        case 'keep_audio': return !!phase.keep_audio
+        case 'keep_subtitles': return !!phase.keep_subtitles
+        case 'filter_attachments': return !!phase.filter_attachments
         case 'track_order': return Array.isArray(phase.track_order) && phase.track_order.length > 0
         case 'default_flags': return !!phase.default_flags
-        case 'conditional': return Array.isArray(phase.conditional) && phase.conditional.length > 0
+        case 'rules': return !!phase.rules
         case 'audio_synthesis': return !!phase.audio_synthesis
         case 'transcode': return !!phase.transcode || !!phase.audio_transcode
         case 'transcription': return !!phase.transcription
@@ -530,14 +544,14 @@ export function initPhasesSection(policyData, onUpdate) {
             case 'container':
                 phase.container = { target: 'mkv' }
                 break
-            case 'audio_filter':
-                phase.audio_filter = { languages: ['eng'] }
+            case 'keep_audio':
+                phase.keep_audio = { languages: ['eng'] }
                 break
-            case 'subtitle_filter':
-                phase.subtitle_filter = { languages: ['eng'] }
+            case 'keep_subtitles':
+                phase.keep_subtitles = { languages: ['eng'] }
                 break
-            case 'attachment_filter':
-                phase.attachment_filter = { remove_all: false }
+            case 'filter_attachments':
+                phase.filter_attachments = { remove_all: false }
                 break
             case 'track_order':
                 phase.track_order = ['video', 'audio', 'subtitle', 'attachment']
@@ -545,14 +559,14 @@ export function initPhasesSection(policyData, onUpdate) {
             case 'default_flags':
                 phase.default_flags = { set_first_video_default: true }
                 break
-            case 'conditional':
-                phase.conditional = []
+            case 'rules':
+                phase.rules = { match: 'first', items: [] }
                 break
             case 'audio_synthesis':
                 phase.audio_synthesis = { tracks: [] }
                 break
             case 'transcode':
-                phase.transcode = { target_codec: 'hevc' }
+                phase.transcode = { to: 'hevc' }
                 break
             case 'transcription':
                 phase.transcription = { enabled: true }

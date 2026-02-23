@@ -178,16 +178,40 @@ class HardwareAccelConfigModel(BaseModel):
 
 
 class VideoTranscodeConfigModel(BaseModel):
-    """Pydantic model for V6 video transcode configuration."""
+    """Pydantic model for V13 video transcode configuration.
+
+    Quality, scaling, and hardware acceleration are flattened into
+    this model directly. Quality mode is inferred from which fields
+    are set during conversion.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    target_codec: str
+    to: str
+    """Target video codec (hevc, h264, vp9, av1)."""
 
     skip_if: SkipConditionModel | None = None
-    quality: QualitySettingsModel | None = None
-    scaling: ScalingSettingsModel | None = None
-    hardware_acceleration: HardwareAccelConfigModel | None = None
+
+    # Quality settings (flattened)
+    crf: int | None = Field(default=None, ge=0, le=51)
+    preset: str = "medium"
+    tune: str | None = None
+    target_bitrate: str | None = None
+    min_bitrate: str | None = None
+    max_bitrate: str | None = None
+    two_pass: bool = False
+
+    # Scaling settings (flattened)
+    max_resolution: str | None = None
+    max_width: int | None = Field(default=None, ge=1)
+    max_height: int | None = Field(default=None, ge=1)
+    scale_algorithm: Literal["lanczos", "bicubic", "bilinear"] = "lanczos"
+    upscale: bool = False
+
+    # Hardware acceleration (flattened)
+    hw: Literal["auto", "nvenc", "qsv", "vaapi", "none"] = "auto"
+    hw_fallback: bool = True
+
     ffmpeg_args: list[str] | None = None
 
     @field_validator("ffmpeg_args")
@@ -225,47 +249,105 @@ class VideoTranscodeConfigModel(BaseModel):
 
         return v
 
-    @field_validator("target_codec")
+    @field_validator("to")
     @classmethod
     def validate_video_codec(cls, v: str) -> str:
         """Validate video codec."""
         if v.casefold() not in VALID_VIDEO_CODECS:
             raise ValueError(
-                f"Invalid target_codec '{v}'. "
+                f"Invalid target codec '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
             )
         return v
 
+    @field_validator("preset")
+    @classmethod
+    def validate_preset(cls, v: str) -> str:
+        """Validate encoding preset."""
+        if v not in VALID_PRESETS:
+            raise ValueError(
+                f"Invalid preset '{v}'. Must be one of: {', '.join(VALID_PRESETS)}"
+            )
+        return v
+
+    @field_validator("tune")
+    @classmethod
+    def validate_tune(cls, v: str | None) -> str | None:
+        """Validate tune option."""
+        if v is not None and v not in X264_X265_TUNES:
+            raise ValueError(
+                f"Invalid tune '{v}'. Must be one of: {', '.join(X264_X265_TUNES)}"
+            )
+        return v
+
+    @field_validator("target_bitrate", "min_bitrate", "max_bitrate")
+    @classmethod
+    def validate_bitrate(cls, v: str | None) -> str | None:
+        """Validate bitrate format."""
+        if v is not None and parse_bitrate(v) is None:
+            raise ValueError(
+                f"Invalid bitrate '{v}'. "
+                "Must be a number followed by M or k (e.g., '5M', '2500k')."
+            )
+        return v
+
+    @field_validator("max_resolution")
+    @classmethod
+    def validate_resolution(cls, v: str | None) -> str | None:
+        """Validate resolution preset."""
+        if v is not None and v.casefold() not in VALID_RESOLUTIONS:
+            raise ValueError(
+                f"Invalid max_resolution '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def validate_quality_mode(self) -> "VideoTranscodeConfigModel":
+        """Reject ambiguous quality mode combinations."""
+        if self.crf is not None and self.target_bitrate is not None:
+            raise ValueError(
+                "Cannot set both 'crf' and 'target_bitrate'. "
+                "Use crf alone for CRF mode, target_bitrate alone for bitrate mode, "
+                "or crf + max_bitrate for constrained quality mode."
+            )
+        return self
+
 
 class AudioTranscodeConfigModel(BaseModel):
-    """Pydantic model for V6 audio transcode configuration."""
+    """Pydantic model for V13 audio transcode configuration."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    preserve_codecs: list[str] = Field(
+    preserve: list[str] = Field(
         default_factory=lambda: ["truehd", "dts-hd", "flac", "pcm_s24le"]
     )
-    transcode_to: str = "aac"
-    transcode_bitrate: str = "192k"
+    """Audio codecs to preserve (stream-copy)."""
 
-    @field_validator("transcode_to")
+    to: str = "aac"
+    """Target codec for non-preserved audio tracks."""
+
+    bitrate: str = "192k"
+    """Bitrate for transcoded audio tracks."""
+
+    @field_validator("to")
     @classmethod
     def validate_audio_codec(cls, v: str) -> str:
         """Validate audio codec."""
         if v.casefold() not in VALID_AUDIO_CODECS:
             raise ValueError(
-                f"Invalid transcode_to '{v}'. "
+                f"Invalid target codec '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
             )
         return v
 
-    @field_validator("transcode_bitrate")
+    @field_validator("bitrate")
     @classmethod
     def validate_bitrate(cls, v: str) -> str:
         """Validate bitrate format."""
         if parse_bitrate(v) is None:
             raise ValueError(
-                f"Invalid transcode_bitrate '{v}'. "
+                f"Invalid bitrate '{v}'. "
                 "Must be a number followed by k (e.g., '192k', '256k')."
             )
         return v

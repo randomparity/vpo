@@ -9,7 +9,7 @@ def _make_policy_dict(*, default_flags: dict | None = None) -> dict:
     if default_flags is not None:
         phase["default_flags"] = default_flags
     return {
-        "schema_version": 12,
+        "schema_version": 13,
         "phases": [phase],
     }
 

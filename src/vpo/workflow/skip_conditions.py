@@ -63,7 +63,9 @@ def evaluate_skip_when(
 ) -> SkipReason | None:
     """Evaluate skip_when conditions against file info.
 
-    Returns a SkipReason if any condition matches (OR logic), None otherwise.
+    The `mode` field controls evaluation logic:
+    - 'any' (default): skip if ANY condition matches (OR logic)
+    - 'all': skip only if ALL conditions match (AND logic)
 
     Args:
         condition: The skip condition to evaluate
@@ -73,6 +75,17 @@ def evaluate_skip_when(
     Returns:
         SkipReason if phase should be skipped, None if it should run
     """
+    if condition.mode == "all":
+        return _evaluate_skip_when_all(condition, file_info, file_path)
+    return _evaluate_skip_when_any(condition, file_info, file_path)
+
+
+def _evaluate_skip_when_any(
+    condition: PhaseSkipCondition,
+    file_info: FileInfo,
+    file_path: Path,
+) -> SkipReason | None:
+    """Evaluate with 'any' mode: skip if ANY condition matches (OR logic)."""
     # Check video_codec condition using centralized alias matching
     if condition.video_codec:
         video_track = get_video_track(file_info)
@@ -253,4 +266,177 @@ def evaluate_skip_when(
                 )
 
     # No conditions matched
+    return None
+
+
+def _evaluate_skip_when_all(
+    condition: PhaseSkipCondition,
+    file_info: FileInfo,
+    file_path: Path,
+) -> SkipReason | None:
+    """Evaluate with 'all' mode: skip only if ALL conditions match (AND logic).
+
+    Evaluates each active condition. If any active condition does NOT match,
+    returns None (don't skip). Only returns a SkipReason if every active
+    condition matches.
+    """
+    matched_reasons: list[str] = []
+    active_conditions = 0
+
+    # Check video_codec
+    if condition.video_codec:
+        active_conditions += 1
+        video_track = get_video_track(file_info)
+        if video_track and video_track.codec:
+            from vpo.core.codecs import video_codec_matches
+
+            matched = any(
+                video_codec_matches(video_track.codec, t) for t in condition.video_codec
+            )
+            if matched:
+                matched_reasons.append("video_codec")
+            else:
+                return None
+        else:
+            return None  # Can't evaluate → condition not met
+
+    # Check audio_codec_exists
+    if condition.audio_codec_exists:
+        active_conditions += 1
+        target = condition.audio_codec_exists.casefold()
+        found = any(
+            t.track_type == "audio" and t.codec and t.codec.casefold() == target
+            for t in file_info.tracks
+        )
+        if found:
+            matched_reasons.append("audio_codec_exists")
+        else:
+            return None
+
+    # Check subtitle_language_exists
+    if condition.subtitle_language_exists:
+        active_conditions += 1
+        target = condition.subtitle_language_exists.casefold()
+        found = any(
+            t.track_type == "subtitle"
+            and t.language
+            and t.language.casefold() == target
+            for t in file_info.tracks
+        )
+        if found:
+            matched_reasons.append("subtitle_language_exists")
+        else:
+            return None
+
+    # Check container
+    if condition.container and file_info.container_format:
+        active_conditions += 1
+        normalized = normalize_container_format(file_info.container_format)
+        matched = any(
+            normalize_container_format(t) == normalized for t in condition.container
+        )
+        if matched:
+            matched_reasons.append("container")
+        else:
+            return None
+
+    # Check resolution
+    if condition.resolution:
+        active_conditions += 1
+        video_track = get_video_track(file_info)
+        if video_track and video_track.height:
+            actual = get_video_resolution_label(video_track.height)
+            target = condition.resolution.casefold()
+            if target == "4k":
+                target = "2160p"
+            if actual == target:
+                matched_reasons.append("resolution")
+            else:
+                return None
+        else:
+            return None
+
+    # Check resolution_under
+    if condition.resolution_under:
+        active_conditions += 1
+        video_track = get_video_track(file_info)
+        if video_track and video_track.height:
+            target = condition.resolution_under.casefold()
+            if target == "4k":
+                target = "2160p"
+            threshold = RESOLUTION_HEIGHT_MAP.get(target)
+            if threshold and video_track.height < threshold:
+                matched_reasons.append("resolution_under")
+            else:
+                return None
+        else:
+            return None
+
+    # Check file_size_under
+    if condition.file_size_under:
+        active_conditions += 1
+        threshold_bytes = parse_file_size(condition.file_size_under)
+        if threshold_bytes:
+            file_size = file_info.size_bytes
+            if file_size is None and file_path.exists():
+                file_size = file_path.stat().st_size
+            if file_size is not None and file_size < threshold_bytes:
+                matched_reasons.append("file_size_under")
+            else:
+                return None
+        else:
+            return None
+
+    # Check file_size_over
+    if condition.file_size_over:
+        active_conditions += 1
+        threshold_bytes = parse_file_size(condition.file_size_over)
+        if threshold_bytes:
+            file_size = file_info.size_bytes
+            if file_size is None and file_path.exists():
+                file_size = file_path.stat().st_size
+            if file_size is not None and file_size > threshold_bytes:
+                matched_reasons.append("file_size_over")
+            else:
+                return None
+        else:
+            return None
+
+    # Check duration_under
+    if condition.duration_under:
+        active_conditions += 1
+        threshold_seconds = parse_duration(condition.duration_under)
+        if threshold_seconds:
+            video_track = get_video_track(file_info)
+            duration = video_track.duration_seconds if video_track else None
+            if duration is not None and duration < threshold_seconds:
+                matched_reasons.append("duration_under")
+            else:
+                return None
+        else:
+            return None
+
+    # Check duration_over
+    if condition.duration_over:
+        active_conditions += 1
+        threshold_seconds = parse_duration(condition.duration_over)
+        if threshold_seconds:
+            video_track = get_video_track(file_info)
+            duration = video_track.duration_seconds if video_track else None
+            if duration is not None and duration > threshold_seconds:
+                matched_reasons.append("duration_over")
+            else:
+                return None
+        else:
+            return None
+
+    # All active conditions matched
+    if active_conditions > 0 and len(matched_reasons) == active_conditions:
+        return SkipReason(
+            reason_type=SkipReasonType.CONDITION,
+            message=f"all conditions matched: {', '.join(matched_reasons)}",
+            condition_name="skip_when(all)",
+            condition_value=", ".join(matched_reasons),
+        )
+
     return None

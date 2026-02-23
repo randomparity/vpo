@@ -1,14 +1,16 @@
 /**
- * Transcode Section Module for Policy Editor (036-v9-policy-editor)
+ * Transcode Section Module for Policy Editor (V13 flat structure)
  *
  * Handles video and audio transcode configuration UI.
+ * V13 uses a flat video config (no nested quality/scaling/hardware_acceleration).
  * Features:
- * - Video target codec dropdown with codec-specific options
+ * - Video target codec (`to`) dropdown with codec-specific options
  * - Skip conditions (codec_matches, resolution_within, bitrate_under)
- * - Quality settings (mode, crf, bitrate, preset, tune, two_pass)
- * - Scaling settings (max_resolution, algorithm, upscale)
- * - Hardware acceleration (enabled, fallback_to_cpu)
- * - Audio preserve_codecs list, transcode_to, and transcode_bitrate
+ * - Quality fields flat on video: crf, preset, tune, target_bitrate,
+ *   min_bitrate, max_bitrate, two_pass (mode inferred server-side)
+ * - Scaling fields flat on video: max_resolution, scale_algorithm, upscale
+ * - Hardware acceleration flat on video: hw, hw_fallback
+ * - Audio: preserve list, to codec, and bitrate
  */
 
 // Constants for video transcode options
@@ -70,7 +72,7 @@ const HW_ACCEL_MODES = [
     { value: 'none', label: 'Disabled (CPU Only)' }
 ]
 
-// Audio codec options for preserve_codecs and transcode_to
+// Audio codec options for preserve and to
 const AUDIO_CODECS = [
     'truehd', 'dts-hd', 'flac', 'pcm_s24le', 'pcm_s16le',
     'aac', 'ac3', 'eac3', 'dts', 'opus', 'vorbis', 'mp3'
@@ -110,32 +112,41 @@ export function initTranscodeSection(policyData, onUpdate) {
     }
 
     /**
-     * Extract video transcode config from policy data
+     * Extract video transcode config from policy data (V13 flat structure)
      */
     function extractVideoConfig(data) {
         const transcode = data?.transcode?.video
         if (!transcode) return null
 
         return {
-            target_codec: transcode.target_codec || '',
+            to: transcode.to || '',
             skip_if: transcode.skip_if || null,
-            quality: transcode.quality || null,
-            scaling: transcode.scaling || null,
-            hardware_acceleration: transcode.hardware_acceleration || null
+            crf: transcode.crf ?? null,
+            preset: transcode.preset || null,
+            tune: transcode.tune || null,
+            target_bitrate: transcode.target_bitrate || null,
+            min_bitrate: transcode.min_bitrate || null,
+            max_bitrate: transcode.max_bitrate || null,
+            two_pass: transcode.two_pass || false,
+            max_resolution: transcode.max_resolution || null,
+            scale_algorithm: transcode.scale_algorithm || null,
+            upscale: transcode.upscale || false,
+            hw: transcode.hw || null,
+            hw_fallback: transcode.hw_fallback ?? null
         }
     }
 
     /**
-     * Extract audio transcode config from policy data
+     * Extract audio transcode config from policy data (V13 field names)
      */
     function extractAudioConfig(data) {
         const transcode = data?.transcode?.audio
         if (!transcode) return null
 
         return {
-            preserve_codecs: transcode.preserve_codecs || [],
-            transcode_to: transcode.transcode_to || 'aac',
-            transcode_bitrate: transcode.transcode_bitrate || '192k'
+            preserve: transcode.preserve || [],
+            to: transcode.to || 'aac',
+            bitrate: transcode.bitrate || '192k'
         }
     }
 
@@ -350,40 +361,85 @@ export function initTranscodeSection(policyData, onUpdate) {
     }
 
     /**
-     * Get current transcode configuration
+     * Get current transcode configuration (V13 flat video structure)
      */
     function getTranscodeConfig() {
         const config = {}
 
-        // Video config
+        // Video config (flat - no nested quality/scaling/hardware_acceleration)
         const videoCodec = videoCodecSelect?.value
         if (videoCodec) {
-            config.video = {
-                target_codec: videoCodec
-            }
+            config.video = { to: videoCodec }
 
-            // Skip conditions
+            // Skip conditions (field names unchanged)
             const skipConfig = getSkipConfig()
             if (skipConfig && Object.keys(skipConfig).length > 0) {
                 config.video.skip_if = skipConfig
             }
 
-            // Quality settings
-            const qualityConfig = getQualityConfig()
-            if (qualityConfig && Object.keys(qualityConfig).length > 0) {
-                config.video.quality = qualityConfig
+            // Quality fields (flat, no mode field - mode inferred server-side)
+            const mode = document.getElementById('video-quality-mode')?.value
+
+            const crf = document.getElementById('video-quality-crf')?.value
+            if (crf && (mode === 'crf' || mode === 'constrained_quality')) {
+                config.video.crf = parseInt(crf, 10)
             }
 
-            // Scaling settings
-            const scalingConfig = getScalingConfig()
-            if (scalingConfig && Object.keys(scalingConfig).length > 0) {
-                config.video.scaling = scalingConfig
+            const targetBitrate = document.getElementById('video-quality-bitrate')?.value?.trim()
+            if (targetBitrate && (mode === 'bitrate' || mode === 'constrained_quality')) {
+                config.video.target_bitrate = targetBitrate
             }
 
-            // Hardware acceleration
-            const hwConfig = getHardwareAccelConfig()
-            if (hwConfig) {
-                config.video.hardware_acceleration = hwConfig
+            const minBitrate = document.getElementById('video-quality-min-bitrate')?.value?.trim()
+            if (minBitrate && mode === 'constrained_quality') {
+                config.video.min_bitrate = minBitrate
+            }
+
+            const maxBitrate = document.getElementById('video-quality-max-bitrate')?.value?.trim()
+            if (maxBitrate && mode === 'constrained_quality') {
+                config.video.max_bitrate = maxBitrate
+            }
+
+            const preset = document.getElementById('video-quality-preset')?.value
+            if (preset && preset !== 'medium') {
+                config.video.preset = preset
+            }
+
+            const tune = document.getElementById('video-quality-tune')?.value
+            if (tune) {
+                config.video.tune = tune
+            }
+
+            const twoPass = document.getElementById('video-quality-twopass')?.checked
+            if (twoPass) {
+                config.video.two_pass = true
+            }
+
+            // Scaling fields (flat)
+            const resolution = document.getElementById('video-scaling-resolution')?.value
+            if (resolution) {
+                config.video.max_resolution = resolution
+            }
+
+            const algorithm = document.getElementById('video-scaling-algorithm')?.value
+            if (algorithm && algorithm !== 'lanczos') {
+                config.video.scale_algorithm = algorithm
+            }
+
+            const upscale = document.getElementById('video-scaling-upscale')?.checked
+            if (upscale) {
+                config.video.upscale = true
+            }
+
+            // Hardware acceleration fields (flat)
+            const hwMode = document.getElementById('video-hwaccel-mode')?.value
+            if (hwMode && hwMode !== 'auto') {
+                config.video.hw = hwMode
+            }
+
+            const hwFallback = document.getElementById('video-hwaccel-fallback')?.checked
+            if (hwFallback === false) {
+                config.video.hw_fallback = false
             }
         }
 
@@ -423,135 +479,41 @@ export function initTranscodeSection(policyData, onUpdate) {
     }
 
     /**
-     * Get quality settings config
-     */
-    function getQualityConfig() {
-        const config = {}
-
-        const mode = document.getElementById('video-quality-mode')?.value
-        if (mode) {
-            config.mode = mode
-        }
-
-        const crf = document.getElementById('video-quality-crf')?.value
-        if (crf && mode === 'crf') {
-            config.crf = parseInt(crf, 10)
-        }
-
-        const bitrate = document.getElementById('video-quality-bitrate')?.value?.trim()
-        if (bitrate && (mode === 'bitrate' || mode === 'constrained_quality')) {
-            config.bitrate = bitrate
-        }
-
-        const minBitrate = document.getElementById('video-quality-min-bitrate')?.value?.trim()
-        if (minBitrate && mode === 'constrained_quality') {
-            config.min_bitrate = minBitrate
-        }
-
-        const maxBitrate = document.getElementById('video-quality-max-bitrate')?.value?.trim()
-        if (maxBitrate && mode === 'constrained_quality') {
-            config.max_bitrate = maxBitrate
-        }
-
-        const preset = document.getElementById('video-quality-preset')?.value
-        if (preset && preset !== 'medium') {
-            config.preset = preset
-        }
-
-        const tune = document.getElementById('video-quality-tune')?.value
-        if (tune) {
-            config.tune = tune
-        }
-
-        const twoPass = document.getElementById('video-quality-twopass')?.checked
-        if (twoPass) {
-            config.two_pass = true
-        }
-
-        return config
-    }
-
-    /**
-     * Get scaling settings config
-     */
-    function getScalingConfig() {
-        const config = {}
-
-        const resolution = document.getElementById('video-scaling-resolution')?.value
-        if (resolution) {
-            config.max_resolution = resolution
-        }
-
-        const algorithm = document.getElementById('video-scaling-algorithm')?.value
-        if (algorithm && algorithm !== 'lanczos') {
-            config.algorithm = algorithm
-        }
-
-        const upscale = document.getElementById('video-scaling-upscale')?.checked
-        if (upscale) {
-            config.upscale = true
-        }
-
-        return config
-    }
-
-    /**
-     * Get hardware acceleration config
-     */
-    function getHardwareAccelConfig() {
-        const mode = document.getElementById('video-hwaccel-mode')?.value
-        const fallback = document.getElementById('video-hwaccel-fallback')?.checked
-
-        if (!mode || mode === 'auto') {
-            // Only include if fallback is explicitly disabled
-            if (fallback === false) {
-                return { enabled: 'auto', fallback_to_cpu: false }
-            }
-            return null // Use defaults
-        }
-
-        return {
-            enabled: mode,
-            fallback_to_cpu: fallback !== false
-        }
-    }
-
-    /**
-     * Get audio transcode config
+     * Get audio transcode config (V13 field names)
      */
     function getAudioTranscodeConfig() {
         const transcodeTo = audioTranscodeSelect?.value
         if (!transcodeTo) return null
 
         const config = {
-            transcode_to: transcodeTo
+            to: transcodeTo
         }
 
         // Preserve codecs
-        if (state.audio?.preserve_codecs?.length > 0) {
-            config.preserve_codecs = state.audio.preserve_codecs
+        if (state.audio?.preserve?.length > 0) {
+            config.preserve = state.audio.preserve
         }
 
         // Bitrate
         const bitrate = document.getElementById('audio-transcode-bitrate')?.value?.trim()
         if (bitrate) {
-            config.transcode_bitrate = bitrate
+            config.bitrate = bitrate
         }
 
         return config
     }
 
     /**
-     * Populate form from state
+     * Populate form from state (V13 flat structure)
      */
     function populateForm() {
         // Video codec
-        if (state.video?.target_codec && videoCodecSelect) {
-            videoCodecSelect.value = state.video.target_codec
+        if (state.video?.to && videoCodecSelect) {
+            videoCodecSelect.value = state.video.to
             showVideoOptions()
         }
 
-        // Skip conditions
+        // Skip conditions (field names unchanged)
         if (state.video?.skip_if) {
             const skipRes = document.getElementById('video-skip-resolution')
             if (skipRes && state.video.skip_if.resolution_within) {
@@ -573,88 +535,104 @@ export function initTranscodeSection(policyData, onUpdate) {
             )
         }
 
-        // Quality settings
-        if (state.video?.quality) {
+        // Quality settings (flat on state.video, infer mode from fields)
+        if (state.video) {
+            // Infer quality mode from which fields are set
+            let inferredMode = 'crf' // default
+            if (state.video.crf != null && state.video.max_bitrate) {
+                inferredMode = 'constrained_quality'
+            } else if (state.video.target_bitrate) {
+                inferredMode = 'bitrate'
+            } else if (state.video.crf != null) {
+                inferredMode = 'crf'
+            }
+
             const modeSelect = document.getElementById('video-quality-mode')
-            if (modeSelect && state.video.quality.mode) {
-                modeSelect.value = state.video.quality.mode
-                handleQualityModeChange(state.video.quality.mode)
+            if (modeSelect) {
+                modeSelect.value = inferredMode
+                handleQualityModeChange(inferredMode)
             }
 
             const crfInput = document.getElementById('video-quality-crf')
-            if (crfInput && state.video.quality.crf != null) {
-                crfInput.value = state.video.quality.crf
+            if (crfInput && state.video.crf != null) {
+                crfInput.value = state.video.crf
             }
 
             const bitrateInput = document.getElementById('video-quality-bitrate')
-            if (bitrateInput && state.video.quality.bitrate) {
-                bitrateInput.value = state.video.quality.bitrate
+            if (bitrateInput && state.video.target_bitrate) {
+                bitrateInput.value = state.video.target_bitrate
+            }
+
+            const minBitrateInput = document.getElementById('video-quality-min-bitrate')
+            if (minBitrateInput && state.video.min_bitrate) {
+                minBitrateInput.value = state.video.min_bitrate
+            }
+
+            const maxBitrateInput = document.getElementById('video-quality-max-bitrate')
+            if (maxBitrateInput && state.video.max_bitrate) {
+                maxBitrateInput.value = state.video.max_bitrate
             }
 
             const presetSelect = document.getElementById('video-quality-preset')
-            if (presetSelect && state.video.quality.preset) {
-                presetSelect.value = state.video.quality.preset
+            if (presetSelect && state.video.preset) {
+                presetSelect.value = state.video.preset
             }
 
             const tuneSelect = document.getElementById('video-quality-tune')
-            if (tuneSelect && state.video.quality.tune) {
-                tuneSelect.value = state.video.quality.tune
+            if (tuneSelect && state.video.tune) {
+                tuneSelect.value = state.video.tune
             }
 
             const twoPassCheck = document.getElementById('video-quality-twopass')
             if (twoPassCheck) {
-                twoPassCheck.checked = state.video.quality.two_pass || false
+                twoPassCheck.checked = state.video.two_pass || false
             }
-        }
 
-        // Scaling settings
-        if (state.video?.scaling) {
+            // Scaling settings (flat on state.video)
             const resSelect = document.getElementById('video-scaling-resolution')
-            if (resSelect && state.video.scaling.max_resolution) {
-                resSelect.value = state.video.scaling.max_resolution
+            if (resSelect && state.video.max_resolution) {
+                resSelect.value = state.video.max_resolution
             }
 
             const algoSelect = document.getElementById('video-scaling-algorithm')
-            if (algoSelect && state.video.scaling.algorithm) {
-                algoSelect.value = state.video.scaling.algorithm
+            if (algoSelect && state.video.scale_algorithm) {
+                algoSelect.value = state.video.scale_algorithm
             }
 
             const upscaleCheck = document.getElementById('video-scaling-upscale')
             if (upscaleCheck) {
-                upscaleCheck.checked = state.video.scaling.upscale || false
+                upscaleCheck.checked = state.video.upscale || false
             }
-        }
 
-        // Hardware acceleration
-        if (state.video?.hardware_acceleration) {
-            const modeSelect = document.getElementById('video-hwaccel-mode')
-            if (modeSelect && state.video.hardware_acceleration.enabled) {
-                modeSelect.value = state.video.hardware_acceleration.enabled
+            // Hardware acceleration (flat on state.video)
+            const hwModeSelect = document.getElementById('video-hwaccel-mode')
+            if (hwModeSelect && state.video.hw) {
+                hwModeSelect.value = state.video.hw
             }
 
             const fallbackCheck = document.getElementById('video-hwaccel-fallback')
             if (fallbackCheck) {
-                fallbackCheck.checked = state.video.hardware_acceleration.fallback_to_cpu !== false
+                fallbackCheck.checked = state.video.hw_fallback !== false
             }
         }
 
         // Audio config
         if (state.audio) {
-            if (audioTranscodeSelect && state.audio.transcode_to) {
-                audioTranscodeSelect.value = state.audio.transcode_to
+            if (audioTranscodeSelect && state.audio.to) {
+                audioTranscodeSelect.value = state.audio.to
                 showAudioOptions()
             }
 
             const bitrateInput = document.getElementById('audio-transcode-bitrate')
-            if (bitrateInput && state.audio.transcode_bitrate) {
-                bitrateInput.value = state.audio.transcode_bitrate
+            if (bitrateInput && state.audio.bitrate) {
+                bitrateInput.value = state.audio.bitrate
             }
 
             renderCodecTags('audio-preserve-codec-tags',
-                state.audio.preserve_codecs,
+                state.audio.preserve,
                 (codec) => {
-                    state.audio.preserve_codecs = state.audio.preserve_codecs.filter(c => c !== codec)
-                    renderCodecTags('audio-preserve-codec-tags', state.audio.preserve_codecs, arguments.callee)
+                    state.audio.preserve = state.audio.preserve.filter(c => c !== codec)
+                    renderCodecTags('audio-preserve-codec-tags', state.audio.preserve, arguments.callee)
                     updateState()
                 }
             )
@@ -671,7 +649,7 @@ export function initTranscodeSection(policyData, onUpdate) {
     }
 
     /**
-     * Show/hide audio options based on transcode_to selection
+     * Show/hide audio options based on audio codec selection
      */
     function showAudioOptions() {
         if (audioOptionsDiv) {
@@ -722,7 +700,7 @@ export function initTranscodeSection(policyData, onUpdate) {
             const codec = videoSkipCodecSelect?.value
             if (!codec) return
 
-            if (!state.video) state.video = { target_codec: videoCodecSelect?.value || '' }
+            if (!state.video) state.video = { to: videoCodecSelect?.value || '' }
             if (!state.video.skip_if) state.video.skip_if = {}
             if (!state.video.skip_if.codec_matches) state.video.skip_if.codec_matches = []
 
@@ -760,16 +738,16 @@ export function initTranscodeSection(policyData, onUpdate) {
             const codec = audioPreserveCodecSelect?.value
             if (!codec) return
 
-            if (!state.audio) state.audio = { transcode_to: audioTranscodeSelect?.value || 'aac' }
-            if (!state.audio.preserve_codecs) state.audio.preserve_codecs = []
+            if (!state.audio) state.audio = { to: audioTranscodeSelect?.value || 'aac' }
+            if (!state.audio.preserve) state.audio.preserve = []
 
-            if (!state.audio.preserve_codecs.includes(codec)) {
-                state.audio.preserve_codecs.push(codec)
+            if (!state.audio.preserve.includes(codec)) {
+                state.audio.preserve.push(codec)
                 renderCodecTags('audio-preserve-codec-tags',
-                    state.audio.preserve_codecs,
+                    state.audio.preserve,
                     (c) => {
-                        state.audio.preserve_codecs = state.audio.preserve_codecs.filter(x => x !== c)
-                        renderCodecTags('audio-preserve-codec-tags', state.audio.preserve_codecs, arguments.callee)
+                        state.audio.preserve = state.audio.preserve.filter(x => x !== c)
+                        renderCodecTags('audio-preserve-codec-tags', state.audio.preserve, arguments.callee)
                         updateState()
                     }
                 )

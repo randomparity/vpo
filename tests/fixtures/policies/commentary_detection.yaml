@@ -1,4 +1,4 @@
-schema_version: 12
+schema_version: 13
 
 # Advanced commentary detection patterns
 config:
@@ -9,10 +9,10 @@ config:
     - 'behind.+scenes?'
     - 'making.+of'
     - 'audio\s*description'
-  audio_language_preference:
+  audio_languages:
     - eng
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
 

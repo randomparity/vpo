@@ -1,11 +1,11 @@
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - jpn
     - spa
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - spa
 
@@ -13,7 +13,7 @@ phases:
   - name: transcode
     transcode:
       video:
-        target_codec: hevc
+        to: hevc
 
   - name: transcribe
     transcription:

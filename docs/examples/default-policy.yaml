@@ -3,49 +3,54 @@
 #
 # Usage: vpo process --policy default-policy.yaml [--dry-run] <file.mkv>
 
-schema_version: 1
+schema_version: 13
 
-# Track type ordering (first = top priority)
-# Tracks are reordered to match this sequence
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+config:
+  # Preferred audio languages (ISO 639-2 codes)
+  # First matching language becomes the default audio track
+  audio_languages:
+    - eng  # English
+    - und  # Undefined/unknown
 
-# Preferred audio languages (ISO 639-2 codes)
-# First matching language becomes the default audio track
-audio_language_preference:
-  - eng  # English
-  - und  # Undefined/unknown
+  # Preferred subtitle languages (ISO 639-2 codes)
+  # Used when set_preferred_subtitle_default is enabled
+  subtitle_languages:
+    - eng  # English
+    - und  # Undefined/unknown
 
-# Preferred subtitle languages (ISO 639-2 codes)
-# Used when set_preferred_subtitle_default is enabled
-subtitle_language_preference:
-  - eng  # English
-  - und  # Undefined/unknown
+  # Patterns to identify commentary tracks (regex, case-insensitive)
+  # Tracks matching these patterns are classified as commentary
+  commentary_patterns:
+    - commentary
+    - director
 
-# Patterns to identify commentary tracks (regex, case-insensitive)
-# Tracks matching these patterns are classified as commentary
-commentary_patterns:
-  - 'commentary'
-  - 'director'
+  on_error: continue
 
-# Default flag behavior
-default_flags:
-  # Set the first video track as default (recommended)
-  set_first_video_default: true
+phases:
+  - name: organize
+    # Track type ordering (first = top priority)
+    # Tracks are reordered to match this sequence
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+      - attachment
 
-  # Set the preferred audio track as default based on language preference
-  set_preferred_audio_default: true
+    # Default flag behavior
+    default_flags:
+      # Set the first video track as default (recommended)
+      set_first_video_default: true
 
-  # Set the preferred subtitle track as default (disabled by default)
-  # Enable this for foreign-language content where subtitles are expected
-  set_preferred_subtitle_default: false
+      # Set the preferred audio track as default based on language preference
+      set_preferred_audio_default: true
 
-  # Clear the default flag on non-preferred tracks of the same type
-  clear_other_defaults: true
+      # Set the preferred subtitle track as default (disabled by default)
+      # Enable this for foreign-language content where subtitles are expected
+      set_preferred_subtitle_default: false
+
+      # Clear the default flag on non-preferred tracks of the same type
+      clear_other_defaults: true

@@ -338,7 +338,7 @@ class TestProcessCommandMultiPolicyCLI:
         # Create two minimal policy files
         for name in ("a.yaml", "b.yaml"):
             (temp_dir / name).write_text(
-                "schema_version: 12\nphases:\n  - name: default\n"
+                "schema_version: 13\nphases:\n  - name: default\n"
             )
         # Create a dummy video file
         video = temp_dir / "test.mkv"

@@ -1,60 +1,62 @@
 # Test policy for conditional rule evaluation
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - jpn
     - und
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - und
 
 phases:
   - name: apply
     # Conditional rules - evaluated first, first match wins
-    conditional:
-      # Rule 1: Skip video transcode for 4K HEVC
-      - name: "4K HEVC passthrough"
-        when:
-          and:
-            - exists:
-                track_type: video
-                height: { gte: 2160 }
-            - exists:
-                track_type: video
-                codec: hevc
-        then:
-          - skip_video_transcode: true
-          - warn: "4K HEVC detected - skipping video transcode"
+    rules:
+      match: first
+      items:
+        # Rule 1: Skip video transcode for 4K HEVC
+        - name: "4K HEVC passthrough"
+          when:
+            and:
+              - exists:
+                  track_type: video
+                  height: { gte: 2160 }
+              - exists:
+                  track_type: video
+                  codec: hevc
+          then:
+            - skip_video_transcode: true
+            - warn: "4K HEVC detected - skipping video transcode"
 
-      # Rule 2: Skip track filtering for single audio
-      - name: "Single audio track"
-        when:
-          count:
-            track_type: audio
-            eq: 1
-        then:
-          - skip_track_filter: true
-          - warn: "Only one audio track - skipping filter"
-
-      # Rule 3: Warn on missing English audio
-      - name: "Missing English audio"
-        when:
-          not:
-            exists:
+        # Rule 2: Skip track filtering for single audio
+        - name: "Single audio track"
+          when:
+            count:
               track_type: audio
-              language: eng
-        then:
-          - warn: "{filename} has no English audio track"
+              eq: 1
+          then:
+            - skip_track_filter: true
+            - warn: "Only one audio track - skipping filter"
 
-      # Rule 4: Fallback - no special handling needed
-      - name: "Default processing"
-        when:
-          exists:
-            track_type: video
-        then:
-          - warn: "Standard processing for {filename}"
+        # Rule 3: Warn on missing English audio
+        - name: "Missing English audio"
+          when:
+            not:
+              exists:
+                track_type: audio
+                language: eng
+          then:
+            - warn: "{filename} has no English audio track"
+
+        # Rule 4: Fallback - no special handling needed
+        - name: "Default processing"
+          when:
+            exists:
+              track_type: video
+          then:
+            - warn: "Standard processing for {filename}"
 
     default_flags:
       set_first_video_default: true

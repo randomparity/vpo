@@ -450,51 +450,90 @@ class AudioTranscodeConfig:
     which are transcoded during video transcoding operations.
     """
 
-    preserve_codecs: tuple[str, ...] = ("truehd", "dts-hd", "flac", "pcm_s24le")
+    preserve: tuple[str, ...] = ("truehd", "dts-hd", "flac", "pcm_s24le")
     """Audio codecs to preserve (stream-copy without re-encoding)."""
 
-    transcode_to: str = "aac"
+    to: str = "aac"
     """Target codec for non-preserved audio tracks."""
 
-    transcode_bitrate: str = "192k"
+    bitrate: str = "192k"
     """Bitrate for transcoded audio tracks."""
 
     def __post_init__(self) -> None:
         """Validate audio transcode configuration."""
-        if self.transcode_to.casefold() not in VALID_AUDIO_CODECS:
+        if self.to.casefold() not in VALID_AUDIO_CODECS:
             raise ValueError(
-                f"Invalid transcode_to: {self.transcode_to}. "
+                f"Invalid target codec: {self.to}. "
                 f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
             )
-        if parse_bitrate(self.transcode_bitrate) is None:
+        if parse_bitrate(self.bitrate) is None:
             raise ValueError(
-                f"Invalid transcode_bitrate: {self.transcode_bitrate}. "
+                f"Invalid bitrate: {self.bitrate}. "
                 "Must be a number followed by k (e.g., '192k', '256k')."
             )
 
 
 @dataclass(frozen=True)
 class VideoTranscodeConfig:
-    """Video transcoding configuration within a transcode policy.
+    """Video transcoding configuration.
 
-    This is the new V6 configuration that extends the existing
-    TranscodePolicyConfig with conditional skip logic and enhanced settings.
+    In V13, quality, scaling, and hardware acceleration settings are
+    flattened into this config directly. Quality mode is inferred:
+    - crf set (no target_bitrate) → CRF mode
+    - target_bitrate set (no crf) → bitrate mode
+    - crf + max_bitrate set → constrained quality mode
     """
 
-    target_codec: str
+    to: str
     """Target video codec (hevc, h264, vp9, av1)."""
 
     skip_if: SkipCondition | None = None
     """Conditions for skipping transcoding."""
 
-    quality: QualitySettings | None = None
-    """Quality settings (CRF, bitrate, preset, tune)."""
+    # Quality settings (flattened from QualitySettings)
+    crf: int | None = None
+    """CRF value (0-51). Lower = better quality. Defaults applied per codec."""
 
-    scaling: ScalingSettings | None = None
-    """Resolution scaling settings."""
+    preset: str = "medium"
+    """Encoding preset (ultrafast to veryslow)."""
 
-    hardware_acceleration: HardwareAccelConfig | None = None
-    """Hardware acceleration settings."""
+    tune: str | None = None
+    """Content-specific tune option (film, animation, grain, etc.)."""
+
+    target_bitrate: str | None = None
+    """Target bitrate for bitrate mode (e.g., '5M', '2500k')."""
+
+    min_bitrate: str | None = None
+    """Minimum bitrate for constrained quality."""
+
+    max_bitrate: str | None = None
+    """Maximum bitrate for constrained quality."""
+
+    two_pass: bool = False
+    """Enable two-pass encoding for accurate bitrate targeting."""
+
+    # Scaling settings (flattened from ScalingSettings)
+    max_resolution: str | None = None
+    """Maximum resolution preset (e.g., '1080p', '720p', '4k')."""
+
+    max_width: int | None = None
+    """Maximum width in pixels."""
+
+    max_height: int | None = None
+    """Maximum height in pixels."""
+
+    scale_algorithm: ScaleAlgorithm = ScaleAlgorithm.LANCZOS
+    """Scaling algorithm to use."""
+
+    upscale: bool = False
+    """Allow upscaling smaller content."""
+
+    # Hardware acceleration (flattened from HardwareAccelConfig)
+    hw: HardwareAccelMode = HardwareAccelMode.AUTO
+    """Hardware acceleration mode."""
+
+    hw_fallback: bool = True
+    """Fall back to CPU encoding if hardware encoder fails or unavailable."""
 
     ffmpeg_args: tuple[str, ...] | None = None
     """Custom FFmpeg command-line arguments to append before output.
@@ -502,13 +541,114 @@ class VideoTranscodeConfig:
     Example: ("-max_muxing_queue_size", "9999")
     """
 
+    @property
+    def quality_mode(self) -> QualityMode:
+        """Infer quality mode from which fields are set.
+
+        Rules:
+        - crf set + max_bitrate set → constrained_quality
+        - target_bitrate set (no crf) → bitrate
+        - crf set (no target_bitrate) or neither → CRF
+        """
+        if self.crf is not None and self.max_bitrate is not None:
+            return QualityMode.CONSTRAINED_QUALITY
+        if self.target_bitrate is not None and self.crf is None:
+            return QualityMode.BITRATE
+        return QualityMode.CRF
+
+    def get_max_dimensions(self) -> tuple[int, int] | None:
+        """Get max dimensions from resolution preset or explicit values.
+
+        Returns:
+            (max_width, max_height) tuple or None if no limit.
+        """
+        if self.max_resolution:
+            return RESOLUTION_MAP.get(self.max_resolution.casefold())
+        if self.max_width or self.max_height:
+            return (self.max_width or 99999, self.max_height or 99999)
+        return None
+
+    def to_quality_settings(self) -> QualitySettings:
+        """Convert flat quality fields to legacy QualitySettings.
+
+        Used internally by the transcode executor and command builder.
+        """
+        return QualitySettings(
+            mode=self.quality_mode,
+            crf=self.crf,
+            bitrate=self.target_bitrate,
+            min_bitrate=self.min_bitrate,
+            max_bitrate=self.max_bitrate,
+            preset=self.preset,
+            tune=self.tune,
+            two_pass=self.two_pass,
+        )
+
+    def to_hardware_accel_config(self) -> HardwareAccelConfig:
+        """Convert flat hardware fields to legacy HardwareAccelConfig.
+
+        Used internally by the transcode executor and command builder.
+        """
+        return HardwareAccelConfig(
+            enabled=self.hw,
+            fallback_to_cpu=self.hw_fallback,
+        )
+
     def __post_init__(self) -> None:
         """Validate video transcode configuration."""
-        if self.target_codec.casefold() not in VALID_VIDEO_CODECS:
+        if self.to.casefold() not in VALID_VIDEO_CODECS:
             raise ValueError(
-                f"Invalid target_codec: {self.target_codec}. "
+                f"Invalid target codec: {self.to}. "
                 f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
             )
+
+        # Reject ambiguous quality mode
+        if self.crf is not None and self.target_bitrate is not None:
+            raise ValueError(
+                "Cannot set both 'crf' and 'target_bitrate'. "
+                "Use crf alone for CRF mode, target_bitrate alone for bitrate mode, "
+                "or crf + max_bitrate for constrained quality mode."
+            )
+
+        if self.crf is not None and not 0 <= self.crf <= 51:
+            raise ValueError(f"Invalid crf: {self.crf}. Must be 0-51.")
+
+        if self.preset not in VALID_PRESETS:
+            raise ValueError(
+                f"Invalid preset: {self.preset}. "
+                f"Must be one of: {', '.join(VALID_PRESETS)}"
+            )
+
+        if self.tune is not None and self.tune not in X264_X265_TUNES:
+            raise ValueError(
+                f"Invalid tune: {self.tune}. "
+                f"Must be one of: {', '.join(X264_X265_TUNES)}"
+            )
+
+        # Validate bitrate strings
+        for name, val in [
+            ("target_bitrate", self.target_bitrate),
+            ("min_bitrate", self.min_bitrate),
+            ("max_bitrate", self.max_bitrate),
+        ]:
+            if val is not None and parse_bitrate(val) is None:
+                raise ValueError(
+                    f"Invalid {name}: {val}. Must be a number followed by M or k."
+                )
+
+        # Validate scaling
+        if self.max_resolution is not None:
+            if self.max_resolution.casefold() not in VALID_RESOLUTIONS:
+                raise ValueError(
+                    f"Invalid max_resolution: {self.max_resolution}. "
+                    f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
+                )
+
+        if self.max_width is not None and self.max_width <= 0:
+            raise ValueError(f"max_width must be positive, got {self.max_width}")
+
+        if self.max_height is not None and self.max_height <= 0:
+            raise ValueError(f"max_height must be positive, got {self.max_height}")
 
 
 @dataclass(frozen=True)

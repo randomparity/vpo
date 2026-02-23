@@ -12,11 +12,11 @@ from vpo.policy.loader import PolicyValidationError
 def minimal_policy_file(tmp_path):
     """Create a minimal valid policy file for testing."""
     policy_file = tmp_path / "minimal.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -38,11 +38,11 @@ phases:
 def policy_with_unknown_fields(tmp_path):
     """Create a policy file with unknown fields for round-trip testing."""
     policy_file = tmp_path / "unknown.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -70,13 +70,13 @@ x_another_field:
 def policy_with_comments(tmp_path):
     """Create a policy file with YAML comments for preservation testing."""
     policy_file = tmp_path / "comments.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
   # Language preferences
-  audio_language_preference:
+  audio_languages:
     - eng  # English
     - und  # Undefined
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   # Commentary detection
   commentary_patterns:
@@ -103,9 +103,9 @@ def test_load_valid_policy(minimal_policy_file):
     editor = PolicyRoundTripEditor(minimal_policy_file)
     data = editor.load()
 
-    assert data["schema_version"] == 12
+    assert data["schema_version"] == 13
     assert data["phases"][0]["track_order"] == ["video", "audio_main"]
-    assert data["config"]["audio_language_preference"] == ["eng"]
+    assert data["config"]["audio_languages"] == ["eng"]
     assert data["phases"][0]["default_flags"]["set_first_video_default"] is True
 
 
@@ -141,14 +141,14 @@ def test_save_valid_update(minimal_policy_file):
     data = editor.load()
 
     # Modify a field
-    data["config"]["audio_language_preference"] = ["jpn", "eng"]
+    data["config"]["audio_languages"] = ["jpn", "eng"]
 
     # Save should succeed
     editor.save(data)
 
     # Reload and verify
     reloaded = editor.load()
-    assert reloaded["config"]["audio_language_preference"] == ["jpn", "eng"]
+    assert reloaded["config"]["audio_languages"] == ["jpn", "eng"]
 
 
 def test_save_invalid_data_raises_error(minimal_policy_file):
@@ -169,7 +169,7 @@ def test_save_invalid_language_code_raises_error(minimal_policy_file):
     data = editor.load()
 
     # Invalid language code
-    data["config"]["audio_language_preference"] = ["invalid123"]
+    data["config"]["audio_languages"] = ["invalid123"]
 
     with pytest.raises(PolicyValidationError):
         editor.save(data)
@@ -190,7 +190,7 @@ def test_unknown_field_preservation(policy_with_unknown_fields):
     assert data["x_another_field"]["count"] == 42
 
     # Modify a known field
-    data["config"]["audio_language_preference"] = ["jpn", "eng"]
+    data["config"]["audio_languages"] = ["jpn", "eng"]
 
     # Save
     editor.save(data)
@@ -200,18 +200,18 @@ def test_unknown_field_preservation(policy_with_unknown_fields):
     assert reloaded["x_custom_field"] == "preserved_value"
     assert reloaded["x_another_field"]["nested"] == "data"
     assert reloaded["x_another_field"]["count"] == 42
-    assert reloaded["config"]["audio_language_preference"] == ["jpn", "eng"]
+    assert reloaded["config"]["audio_languages"] == ["jpn", "eng"]
 
 
 def test_multiple_unknown_fields_preserved(tmp_path):
     """Test that multiple unknown fields at different levels are preserved."""
     policy_file = tmp_path / "multi_unknown.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 x_top_level: value1
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -279,8 +279,8 @@ def test_save_preserves_unmodified_fields(minimal_policy_file):
         == original_data["phases"][0]["track_order"]
     )
     assert (
-        reloaded["config"]["audio_language_preference"]
-        == original_data["config"]["audio_language_preference"]
+        reloaded["config"]["audio_languages"]
+        == original_data["config"]["audio_languages"]
     )
     assert (
         reloaded["phases"][0]["default_flags"]
@@ -328,12 +328,12 @@ def test_comment_preservation_best_effort(policy_with_comments):
 def test_comment_on_unchanged_field_preserved(tmp_path):
     """Test that comments on unchanged fields are definitely preserved."""
     policy_file = tmp_path / "comments_unchanged.yaml"
-    policy_file.write_text("""schema_version: 12
+    policy_file.write_text("""schema_version: 13
 config:
   # Audio settings comment
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
   commentary_patterns:
     - commentary
@@ -353,7 +353,7 @@ phases:
     data = editor.load()
 
     # Modify a DIFFERENT field (not track_order)
-    data["config"]["audio_language_preference"] = ["jpn", "eng"]
+    data["config"]["audio_languages"] = ["jpn", "eng"]
 
     editor.save(data)
 

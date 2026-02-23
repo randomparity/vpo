@@ -31,11 +31,11 @@ def v3_audio_filter_policy(temp_dir: Path) -> Path:
     """Create a policy file with audio filtering."""
     policy_path = temp_dir / "audio-filter-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 phases:
   - name: apply
@@ -43,7 +43,7 @@ phases:
       - video
       - audio_main
       - subtitle_main
-    audio_filter:
+    keep_audio:
       languages:
         - eng
         - und
@@ -64,11 +64,11 @@ def v3_strict_audio_filter_policy(temp_dir: Path) -> Path:
     """Create a policy file with strict audio filtering (no fallback)."""
     policy_path = temp_dir / "strict-audio-filter-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 phases:
   - name: apply
@@ -76,7 +76,7 @@ phases:
       - video
       - audio_main
       - subtitle_main
-    audio_filter:
+    keep_audio:
       languages:
         - eng
       minimum: 1
@@ -247,13 +247,13 @@ class TestPhasedPolicyLoading:
 
         policy = load_policy(v3_audio_filter_policy)
 
-        assert policy.schema_version == 12
+        assert policy.schema_version == 13
         assert len(policy.phases) == 1
-        assert policy.phases[0].audio_filter is not None
-        assert policy.phases[0].audio_filter.languages == ("eng", "und")
-        assert policy.phases[0].audio_filter.minimum == 1
-        assert policy.phases[0].audio_filter.fallback is not None
-        assert policy.phases[0].audio_filter.fallback.mode == "keep_first"
+        assert policy.phases[0].keep_audio is not None
+        assert policy.phases[0].keep_audio.languages == ("eng", "und")
+        assert policy.phases[0].keep_audio.minimum == 1
+        assert policy.phases[0].keep_audio.fallback is not None
+        assert policy.phases[0].keep_audio.fallback.mode == "keep_first"
 
 
 # =============================================================================
@@ -269,7 +269,7 @@ class TestComputeTrackDispositions:
     ) -> None:
         """Audio tracks matching filter languages should be kept."""
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         dispositions = compute_track_dispositions(multilang_tracks, policy)
@@ -292,7 +292,7 @@ class TestComputeTrackDispositions:
     ) -> None:
         """InsufficientTracksError should be raised when no audio matches."""
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         with pytest.raises(InsufficientTracksError) as exc_info:
@@ -308,7 +308,7 @@ class TestComputeTrackDispositions:
     ) -> None:
         """Fallback mode keep_first should preserve minimum tracks."""
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng",),
                 fallback=LanguageFallbackConfig(mode="keep_first"),
             ),
@@ -326,7 +326,7 @@ class TestComputeTrackDispositions:
     ) -> None:
         """Fallback mode content_language keeps tracks matching first audio."""
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng",),
                 fallback=LanguageFallbackConfig(mode="content_language"),
             ),
@@ -353,7 +353,7 @@ class TestPlanWithTrackFiltering:
     ) -> None:
         """Plan should include track dispositions when filtering is active."""
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         dispositions = compute_track_dispositions(multilang_tracks, policy)
@@ -382,7 +382,7 @@ class TestPlanWithTrackFiltering:
     ) -> None:
         """Plan summary should include track removal counts."""
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
         )
 
         dispositions = compute_track_dispositions(multilang_tracks, policy)
@@ -577,7 +577,7 @@ class TestSubtitleFilteringIntegration:
         ]
 
         policy = EvaluationPolicy(
-            subtitle_filter=SubtitleFilterConfig(
+            keep_subtitles=SubtitleFilterConfig(
                 languages=("eng",),
                 preserve_forced=True,
             ),
@@ -636,7 +636,7 @@ class TestSubtitleFilteringIntegration:
         ]
 
         policy = EvaluationPolicy(
-            subtitle_filter=SubtitleFilterConfig(
+            keep_subtitles=SubtitleFilterConfig(
                 remove_all=True,
                 preserve_forced=True,  # Should be ignored
             ),
@@ -688,8 +688,8 @@ class TestSubtitleFilteringIntegration:
         ]
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(languages=("eng",)),
-            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
+            keep_subtitles=SubtitleFilterConfig(languages=("eng",)),
         )
 
         dispositions = compute_track_dispositions(tracks, policy)
@@ -762,7 +762,7 @@ class TestAttachmentFilteringIntegration:
         ]
 
         policy = EvaluationPolicy(
-            attachment_filter=AttachmentFilterConfig(remove_all=True),
+            filter_attachments=AttachmentFilterConfig(remove_all=True),
         )
 
         dispositions = compute_track_dispositions(tracks, policy)
@@ -822,8 +822,8 @@ class TestAttachmentFilteringIntegration:
         ]
 
         policy = EvaluationPolicy(
-            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
-            attachment_filter=AttachmentFilterConfig(remove_all=True),
+            keep_subtitles=SubtitleFilterConfig(languages=("eng",)),
+            filter_attachments=AttachmentFilterConfig(remove_all=True),
         )
 
         dispositions = compute_track_dispositions(tracks, policy)
@@ -890,7 +890,7 @@ class TestFallbackModeIntegration:
         ]
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng",),  # No English audio in file
                 fallback=LanguageFallbackConfig(mode="content_language"),
             ),
@@ -949,7 +949,7 @@ class TestFallbackModeIntegration:
         ]
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng",),  # No English
                 minimum=2,
                 fallback=LanguageFallbackConfig(mode="keep_first"),
@@ -997,7 +997,7 @@ class TestFallbackModeIntegration:
         ]
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng", "jpn"),  # Neither present
                 fallback=LanguageFallbackConfig(mode="keep_all"),
             ),
@@ -1040,7 +1040,7 @@ class TestFallbackModeIntegration:
         ]
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng", "fra", "deu"),
                 fallback=LanguageFallbackConfig(mode="error"),
             ),
@@ -1107,14 +1107,14 @@ class TestFallbackModeIntegration:
         )
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(
+            keep_audio=AudioFilterConfig(
                 languages=("eng",),  # No English audio
                 fallback=LanguageFallbackConfig(mode="content_language"),
             ),
-            subtitle_filter=SubtitleFilterConfig(
+            keep_subtitles=SubtitleFilterConfig(
                 languages=("eng",),
             ),
-            attachment_filter=AttachmentFilterConfig(
+            filter_attachments=AttachmentFilterConfig(
                 remove_all=True,
             ),
         )

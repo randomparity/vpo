@@ -54,6 +54,7 @@ from vpo.policy.types.enums import (
     VALID_RESOLUTIONS,
     VALID_VIDEO_CODECS,
     ActionType,
+    MatchMode,
     OnErrorMode,
     OperationType,
     PhaseOutcome,
@@ -102,6 +103,7 @@ from vpo.policy.types.schema import (
     GlobalConfig,
     PhaseDefinition,
     PolicySchema,
+    RulesConfig,
     SkipIfExistsCriteria,
     SynthesisTrackDefinitionRef,
 )
@@ -138,6 +140,7 @@ __all__ = [
     "ActionType",
     "OperationType",
     "OnErrorMode",
+    "MatchMode",
     "PhaseOutcome",
     "SkipReasonType",
     # Constants
@@ -240,6 +243,7 @@ __all__ = [
     "PhaseExecutionError",
     # Schema types
     "GlobalConfig",
+    "RulesConfig",
     "AudioSynthesisConfig",
     "SkipIfExistsCriteria",
     "SynthesisTrackDefinitionRef",

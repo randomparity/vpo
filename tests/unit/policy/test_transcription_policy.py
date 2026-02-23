@@ -97,7 +97,7 @@ class TestTranscriptionPolicyLoading:
         """Loading policy with transcription options should work."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [
                     {
                         "name": "transcribe",
@@ -124,7 +124,7 @@ class TestTranscriptionPolicyLoading:
         """Loading policy without transcription options should work."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [{"name": "default"}],
             }
         )
@@ -134,7 +134,7 @@ class TestTranscriptionPolicyLoading:
         """Partial transcription options should use defaults."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [
                     {
                         "name": "transcribe",
@@ -159,7 +159,7 @@ class TestTranscriptionPolicyLoading:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 12,
+                    "schema_version": 13,
                     "phases": [
                         {
                             "name": "transcribe",
@@ -176,7 +176,7 @@ class TestTranscriptionPolicyLoading:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 12,
+                    "schema_version": 13,
                     "phases": [
                         {
                             "name": "transcribe",
@@ -193,7 +193,7 @@ class TestTranscriptionPolicyLoading:
         """Loading policy with update_title_from_classification should work."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [
                     {
                         "name": "transcribe",
@@ -213,7 +213,7 @@ class TestTranscriptionPolicyLoading:
         """has_transcription_settings indicates if transcription is enabled."""
         policy_disabled = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [
                     {
                         "name": "transcribe",
@@ -229,7 +229,7 @@ class TestTranscriptionPolicyLoading:
 
         policy_enabled = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [
                     {
                         "name": "transcribe",
@@ -244,7 +244,7 @@ class TestTranscriptionPolicyLoading:
 
         policy_none = load_policy_from_dict(
             {
-                "schema_version": 12,
+                "schema_version": 13,
                 "phases": [{"name": "default"}],
             }
         )

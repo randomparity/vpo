@@ -422,7 +422,7 @@ def make_policy():
     from vpo.policy.types import GlobalConfig, PhaseDefinition, PolicySchema
 
     def _make_policy(
-        schema_version: int = 12,
+        schema_version: int = 13,
         config: dict | GlobalConfig | None = None,
         phases: list[dict | PhaseDefinition] | None = None,
     ) -> PolicySchema:
@@ -436,13 +436,12 @@ def make_policy():
 
         # Build phases - at least one phase required
         if phases is None:
-            final_phases = (PhaseDefinition(name="default", conditional=()),)
+            final_phases = (PhaseDefinition(name="default"),)
         else:
             phase_list = []
             for p in phases:
                 if isinstance(p, dict):
                     p.setdefault("name", f"phase_{len(phase_list)}")
-                    p.setdefault("conditional", ())
                     phase_list.append(PhaseDefinition(**p))
                 else:
                     phase_list.append(p)

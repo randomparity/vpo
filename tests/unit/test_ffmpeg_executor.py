@@ -20,7 +20,7 @@ def mp4_plan() -> Plan:
     return Plan(
         file_id="test-id",
         file_path=Path("/test/video.mp4"),
-        policy_version=12,
+        policy_version=13,
         actions=(
             PlannedAction(
                 action_type=ActionType.SET_DEFAULT,
@@ -40,7 +40,7 @@ def avi_plan() -> Plan:
     return Plan(
         file_id="test-id",
         file_path=Path("/test/video.avi"),
-        policy_version=12,
+        policy_version=13,
         actions=(
             PlannedAction(
                 action_type=ActionType.SET_DEFAULT,
@@ -60,7 +60,7 @@ def mkv_plan() -> Plan:
     return Plan(
         file_id="test-id",
         file_path=Path("/test/video.mkv"),
-        policy_version=12,
+        policy_version=13,
         actions=(
             PlannedAction(
                 action_type=ActionType.SET_DEFAULT,
@@ -80,7 +80,7 @@ def reorder_plan() -> Plan:
     return Plan(
         file_id="test-id",
         file_path=Path("/test/video.mp4"),
-        policy_version=12,
+        policy_version=13,
         actions=(
             PlannedAction(
                 action_type=ActionType.REORDER,
@@ -100,7 +100,7 @@ def empty_plan() -> Plan:
     return Plan(
         file_id="test-id",
         file_path=Path("/test/video.mp4"),
-        policy_version=12,
+        policy_version=13,
         actions=(),
         requires_remux=False,
         created_at=datetime.now(timezone.utc),
@@ -135,7 +135,7 @@ class TestFfmpegCanHandle:
         plan = Plan(
             file_id="test-id",
             file_path=Path("/test/audio.mka"),
-            policy_version=12,
+            policy_version=13,
             actions=(
                 PlannedAction(
                     action_type=ActionType.SET_DEFAULT,
@@ -339,7 +339,7 @@ class TestFfmpegBuildCommand:
         plan = Plan(
             file_id="test-id",
             file_path=Path("/test/video.mp4"),
-            policy_version=12,
+            policy_version=13,
             actions=(
                 PlannedAction(
                     action_type=ActionType.CLEAR_DEFAULT,
@@ -366,7 +366,7 @@ class TestFfmpegBuildCommand:
         plan = Plan(
             file_id="test-id",
             file_path=Path("/test/video.mp4"),
-            policy_version=12,
+            policy_version=13,
             actions=(
                 PlannedAction(
                     action_type=ActionType.SET_FORCED,
@@ -393,7 +393,7 @@ class TestFfmpegBuildCommand:
         plan = Plan(
             file_id="test-id",
             file_path=Path("/test/video.mp4"),
-            policy_version=12,
+            policy_version=13,
             actions=(
                 PlannedAction(
                     action_type=ActionType.CLEAR_FORCED,
@@ -420,7 +420,7 @@ class TestFfmpegBuildCommand:
         plan = Plan(
             file_id="test-id",
             file_path=Path("/test/video.mp4"),
-            policy_version=12,
+            policy_version=13,
             actions=(
                 PlannedAction(
                     action_type=ActionType.SET_TITLE,
@@ -447,7 +447,7 @@ class TestFfmpegBuildCommand:
         plan = Plan(
             file_id="test-id",
             file_path=Path("/test/video.mp4"),
-            policy_version=12,
+            policy_version=13,
             actions=(
                 PlannedAction(
                     action_type=ActionType.SET_LANGUAGE,

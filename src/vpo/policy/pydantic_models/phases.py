@@ -19,7 +19,7 @@ from vpo.policy.parsing import (
 from vpo.policy.parsing import (
     parse_file_size as _parse_file_size,
 )
-from vpo.policy.pydantic_models.actions import ConditionalRuleModel
+from vpo.policy.pydantic_models.actions import RulesBlockModel
 from vpo.policy.pydantic_models.base import (
     PHASE_NAME_PATTERN,
     RESERVED_PHASE_NAMES,
@@ -43,16 +43,14 @@ from vpo.policy.types import TrackType
 
 
 class GlobalConfigModel(BaseModel):
-    """Pydantic model for V11 global configuration."""
+    """Pydantic model for V13 global configuration."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    audio_language_preference: list[str] = Field(default_factory=lambda: ["eng", "und"])
+    audio_languages: list[str] = Field(default_factory=lambda: ["eng", "und"])
     """Ordered list of preferred audio languages (ISO 639-2/B codes)."""
 
-    subtitle_language_preference: list[str] = Field(
-        default_factory=lambda: ["eng", "und"]
-    )
+    subtitle_languages: list[str] = Field(default_factory=lambda: ["eng", "und"])
     """Ordered list of preferred subtitle languages (ISO 639-2/B codes)."""
 
     commentary_patterns: list[str] = Field(
@@ -63,7 +61,7 @@ class GlobalConfigModel(BaseModel):
     on_error: Literal["skip", "continue", "fail"] = "continue"
     """How to handle errors during phase execution."""
 
-    @field_validator("audio_language_preference", "subtitle_language_preference")
+    @field_validator("audio_languages", "subtitle_languages")
     @classmethod
     def validate_language_codes(cls, v: list[str]) -> list[str]:
         """Validate language codes are valid ISO 639-2/B format."""
@@ -91,10 +89,15 @@ class GlobalConfigModel(BaseModel):
 class PhaseSkipConditionModel(BaseModel):
     """Pydantic model for phase skip conditions.
 
-    Multiple conditions use OR logic - phase is skipped if ANY matches.
+    The mode field controls how multiple conditions are combined:
+    - 'any': phase is skipped if ANY condition matches (OR logic)
+    - 'all': phase is skipped only if ALL conditions match (AND logic)
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: Literal["any", "all"]
+    """How to combine skip conditions: 'any' (OR) or 'all' (AND). Required."""
 
     video_codec: list[str] | None = None
     """Skip if video codec matches any in this list."""
@@ -242,7 +245,7 @@ class RunIfConditionModel(BaseModel):
 
 
 class PhaseModel(BaseModel):
-    """Pydantic model for a V11 phase definition."""
+    """Pydantic model for a V13 phase definition."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -251,12 +254,12 @@ class PhaseModel(BaseModel):
 
     # Operations (all optional)
     container: ContainerModel | None = None
-    audio_filter: AudioFilterModel | None = None
-    subtitle_filter: SubtitleFilterModel | None = None
-    attachment_filter: AttachmentFilterModel | None = None
+    keep_audio: AudioFilterModel | None = None
+    keep_subtitles: SubtitleFilterModel | None = None
+    filter_attachments: AttachmentFilterModel | None = None
     track_order: list[str] | None = None
     default_flags: DefaultFlagsModel | None = None
-    conditional: list[ConditionalRuleModel] | None = None
+    rules: RulesBlockModel | None = None
     audio_synthesis: AudioSynthesisModel | None = None
     transcode: TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
@@ -312,8 +315,8 @@ class PolicyModel(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal[12] = 12
-    """Schema version, must be exactly 12."""
+    schema_version: Literal[13] = 13
+    """Schema version, must be exactly 13."""
 
     name: str | None = Field(None, max_length=200)
     """Optional display name for UI presentation (max 200 chars)."""

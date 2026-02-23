@@ -27,11 +27,11 @@ def v3_mkv_target_policy(temp_dir: Path) -> Path:
     """Create a policy file with MKV container target."""
     policy_path = temp_dir / "mkv-target-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 phases:
   - name: apply
@@ -55,11 +55,11 @@ def v3_mp4_target_policy(temp_dir: Path) -> Path:
     """Create a policy file with MP4 container target."""
     policy_path = temp_dir / "mp4-target-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 phases:
   - name: apply
@@ -83,11 +83,11 @@ def v3_mp4_skip_policy(temp_dir: Path) -> Path:
     """Create a policy file with MP4 target and skip mode."""
     policy_path = temp_dir / "mp4-skip-policy.yaml"
     policy_path.write_text("""
-schema_version: 12
+schema_version: 13
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
 phases:
   - name: apply
@@ -409,7 +409,7 @@ class TestCombinedFilteringAndConversion:
         ]
 
         policy = EvaluationPolicy(
-            audio_filter=AudioFilterConfig(languages=("eng",)),
+            keep_audio=AudioFilterConfig(languages=("eng",)),
             container=ContainerConfig(target="mkv"),
         )
 

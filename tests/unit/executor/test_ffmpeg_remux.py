@@ -35,7 +35,7 @@ def mock_plan(tmp_path: Path) -> Plan:
     return Plan(
         file_id="test-id",
         file_path=tmp_path / "test.mkv",
-        policy_version=12,
+        policy_version=13,
         actions=(),
         requires_remux=True,
         container_change=ContainerChange(
@@ -85,7 +85,7 @@ class TestBuildTranscodeCommandStreamIndices:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -138,7 +138,7 @@ class TestBuildTranscodeCommandStreamIndices:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -201,7 +201,7 @@ class TestBuildTranscodeCommandStreamIndices:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -248,7 +248,7 @@ class TestBuildTranscodeCommandStreamIndices:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             track_dispositions=(
@@ -313,7 +313,7 @@ class TestBuildTranscodeCommandStreamIndices:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -361,7 +361,7 @@ class TestBuildTranscodeCommandStreamIndices:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -397,7 +397,7 @@ class TestTimeoutScaling:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -419,7 +419,7 @@ class TestTimeoutScaling:
         plan = Plan(
             file_id="test-id",
             file_path=tmp_path / "test.mkv",
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -458,7 +458,7 @@ class TestTimeoutScaling:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -506,7 +506,7 @@ class TestOutputValidation:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -548,7 +548,7 @@ class TestOutputValidation:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -667,7 +667,7 @@ class TestBackupRestorationReporting:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -714,7 +714,7 @@ class TestBackupRestorationReporting:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -777,7 +777,7 @@ class TestTempFileCleanup:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -821,7 +821,7 @@ class TestTempFileCleanup:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(
@@ -863,7 +863,7 @@ class TestTempFileCleanup:
         plan = Plan(
             file_id="test-id",
             file_path=input_file,
-            policy_version=12,
+            policy_version=13,
             actions=(),
             requires_remux=True,
             container_change=ContainerChange(

@@ -56,7 +56,7 @@ class TestPolicyListItem:
             filename="test.yaml",
             file_path="/path/to/test.yaml",
             last_modified="2025-01-01T00:00:00+00:00",
-            schema_version=12,
+            schema_version=13,
             display_name="My Test Policy",
             description="Test policy description",
             category="organize",
@@ -74,7 +74,7 @@ class TestPolicyListItem:
         assert d["filename"] == "test.yaml"
         assert d["file_path"] == "/path/to/test.yaml"
         assert d["last_modified"] == "2025-01-01T00:00:00+00:00"
-        assert d["schema_version"] == 12
+        assert d["schema_version"] == 13
         assert d["display_name"] == "My Test Policy"
         assert d["description"] == "Test policy description"
         assert d["category"] == "organize"
@@ -125,7 +125,7 @@ class TestPolicyListResponse:
                     filename="test.yaml",
                     file_path="/path/test.yaml",
                     last_modified="2025-01-01T00:00:00+00:00",
-                    schema_version=12,
+                    schema_version=13,
                     display_name=None,
                     description="Test description",
                     category="organize",

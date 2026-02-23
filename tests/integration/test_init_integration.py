@@ -119,11 +119,11 @@ class TestInitCommand:
         policy_path = target / "policies" / "default.yaml"
         content = policy_path.read_text()
 
-        # Parse and verify structure (V12 phased format)
+        # Parse and verify structure (V13 phased format)
         data = yaml.safe_load(content)
-        assert data["schema_version"] == 12
+        assert data["schema_version"] == 13
         assert "config" in data
-        assert "audio_language_preference" in data["config"]
+        assert "audio_languages" in data["config"]
         assert "phases" in data
         assert "track_order" in data["phases"][0]
 

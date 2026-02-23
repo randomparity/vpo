@@ -230,8 +230,8 @@ class TestPolicyEditorRequest:
         data = {
             "last_modified_timestamp": "2024-01-15T10:00:00Z",
             "track_order": ["video", "audio"],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
+            "audio_languages": ["eng"],
+            "subtitle_languages": ["eng"],
             "commentary_patterns": [],
             "default_flags": {},
         }
@@ -239,7 +239,7 @@ class TestPolicyEditorRequest:
         request = PolicyEditorRequest.from_dict(data)
 
         assert request.track_order == ["video", "audio"]
-        assert request.audio_language_preference == ["eng"]
+        assert request.audio_languages == ["eng"]
 
     def test_to_policy_dict_phased_format(self):
         """to_policy_dict produces phased format when phases present."""
@@ -252,7 +252,7 @@ class TestPolicyEditorRequest:
 
         policy_dict = request.to_policy_dict()
 
-        assert policy_dict["schema_version"] == 12
+        assert policy_dict["schema_version"] == 13
         assert policy_dict["phases"] == [
             {"name": "normalize", "container": {"target": "mkv"}}
         ]
@@ -263,8 +263,8 @@ class TestPolicyEditorRequest:
         data = {
             "last_modified_timestamp": "2024-01-15T10:00:00Z",
             "track_order": ["video"],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
+            "audio_languages": ["eng"],
+            "subtitle_languages": ["eng"],
             "commentary_patterns": [],
             "default_flags": {},
             "transcode": None,
@@ -343,10 +343,10 @@ class TestPolicySaveSuccessResponse:
             filename="test.yaml",
             file_path="/policies/test.yaml",
             last_modified="2024-01-15T10:00:00Z",
-            schema_version=12,
+            schema_version=13,
             track_order=["video", "audio"],
-            audio_language_preference=["eng"],
-            subtitle_language_preference=["eng"],
+            audio_languages=["eng"],
+            subtitle_languages=["eng"],
             commentary_patterns=[],
             default_flags={},
             transcode=None,
@@ -383,10 +383,10 @@ class TestPolicyEditorContext:
             filename="test.yaml",
             file_path="/policies/test.yaml",
             last_modified="2024-01-15T10:00:00Z",
-            schema_version=12,
+            schema_version=13,
             track_order=["video", "audio"],
-            audio_language_preference=["eng"],
-            subtitle_language_preference=["eng"],
+            audio_languages=["eng"],
+            subtitle_languages=["eng"],
             commentary_patterns=[],
             default_flags={},
             transcode=None,
@@ -397,7 +397,7 @@ class TestPolicyEditorContext:
 
         assert result["name"] == "test"
         assert result["filename"] == "test.yaml"
-        assert result["schema_version"] == 12
+        assert result["schema_version"] == 13
         assert result["track_order"] == ["video", "audio"]
 
     def test_to_dict_with_v3_fields(self):
@@ -407,23 +407,23 @@ class TestPolicyEditorContext:
             filename="test.yaml",
             file_path="/policies/test.yaml",
             last_modified="2024-01-15T10:00:00Z",
-            schema_version=12,
+            schema_version=13,
             track_order=[],
-            audio_language_preference=[],
-            subtitle_language_preference=[],
+            audio_languages=[],
+            subtitle_languages=[],
             commentary_patterns=[],
             default_flags={},
             transcode=None,
             transcription=None,
-            audio_filter={"include_languages": ["eng", "jpn"]},
-            subtitle_filter={"include_languages": ["eng"]},
+            keep_audio={"include_languages": ["eng", "jpn"]},
+            keep_subtitles={"include_languages": ["eng"]},
             container={"target": "mkv"},
         )
 
         result = context.to_dict()
 
-        assert result["audio_filter"] == {"include_languages": ["eng", "jpn"]}
-        assert result["subtitle_filter"] == {"include_languages": ["eng"]}
+        assert result["keep_audio"] == {"include_languages": ["eng", "jpn"]}
+        assert result["keep_subtitles"] == {"include_languages": ["eng"]}
         assert result["container"] == {"target": "mkv"}
 
     def test_to_dict_with_phases(self):
@@ -433,10 +433,10 @@ class TestPolicyEditorContext:
             filename="phased.yaml",
             file_path="/policies/phased.yaml",
             last_modified="2024-01-15T10:00:00Z",
-            schema_version=12,
+            schema_version=13,
             track_order=[],
-            audio_language_preference=[],
-            subtitle_language_preference=[],
+            audio_languages=[],
+            subtitle_languages=[],
             commentary_patterns=[],
             default_flags={},
             transcode=None,
@@ -460,10 +460,10 @@ class TestPolicyEditorContext:
             filename="test.yaml",
             file_path="/policies/test.yaml",
             last_modified="2024-01-15T10:00:00Z",
-            schema_version=12,
+            schema_version=13,
             track_order=[],
-            audio_language_preference=[],
-            subtitle_language_preference=[],
+            audio_languages=[],
+            subtitle_languages=[],
             commentary_patterns=[],
             default_flags={},
             transcode=None,
@@ -482,10 +482,10 @@ class TestPolicyEditorContext:
             filename="broken.yaml",
             file_path="/policies/broken.yaml",
             last_modified="2024-01-15T10:00:00Z",
-            schema_version=12,
+            schema_version=13,
             track_order=[],
-            audio_language_preference=[],
-            subtitle_language_preference=[],
+            audio_languages=[],
+            subtitle_languages=[],
             commentary_patterns=[],
             default_flags={},
             transcode=None,

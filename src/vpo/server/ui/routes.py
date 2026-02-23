@@ -560,23 +560,21 @@ async def policy_editor_handler(request: web.Request) -> dict:
         last_modified=last_modified,
         schema_version=policy_data.get("schema_version", 2),
         track_order=policy_data.get("track_order", default_track_order),
-        audio_language_preference=policy_data.get(
-            "audio_language_preference", default_audio_langs
-        ),
-        subtitle_language_preference=policy_data.get(
-            "subtitle_language_preference", default_subtitle_langs
+        audio_languages=policy_data.get("audio_languages", default_audio_langs),
+        subtitle_languages=policy_data.get(
+            "subtitle_languages", default_subtitle_langs
         ),
         commentary_patterns=policy_data.get("commentary_patterns", []),
         default_flags=policy_data.get("default_flags", default_flags),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
-        # V3+ fields (036-v9-policy-editor)
-        audio_filter=policy_data.get("audio_filter"),
-        subtitle_filter=policy_data.get("subtitle_filter"),
-        attachment_filter=policy_data.get("attachment_filter"),
+        # Track filtering fields
+        keep_audio=policy_data.get("keep_audio"),
+        keep_subtitles=policy_data.get("keep_subtitles"),
+        filter_attachments=policy_data.get("filter_attachments"),
         container=policy_data.get("container"),
-        # V4+ fields
-        conditional=policy_data.get("conditional"),
+        # Conditional rules
+        rules=policy_data.get("rules"),
         # V5+ fields
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields

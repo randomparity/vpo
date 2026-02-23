@@ -338,9 +338,9 @@ class TestConcurrentHealthRequests:
         # Create a valid basic policy (phased format required)
         basic_policy = policies_dir / "test-basic.yaml"
         basic_policy.write_text(
-            "schema_version: 12\n"
+            "schema_version: 13\n"
             "config:\n"
-            "  audio_language_preference:\n    - eng\n"
+            "  audio_languages:\n    - eng\n"
             "phases:\n"
             "  - name: apply\n"
             "    default_flags:\n"
@@ -350,14 +350,14 @@ class TestConcurrentHealthRequests:
         # Create a policy with features (phased format required)
         full_policy = policies_dir / "test-full.yaml"
         full_policy.write_text(
-            "schema_version: 12\n"
+            "schema_version: 13\n"
             "config:\n"
-            "  audio_language_preference:\n    - eng\n    - jpn\n"
+            "  audio_languages:\n    - eng\n    - jpn\n"
             "phases:\n"
             "  - name: transcode\n"
             "    transcode:\n"
             "      video:\n"
-            "        target_codec: hevc\n"
+            "        to: hevc\n"
             "  - name: transcribe\n"
             "    transcription:\n"
             "      enabled: true\n"
@@ -404,7 +404,7 @@ class TestConcurrentHealthRequests:
 
             # Verify policy metadata
             full = next(p for p in data["policies"] if p["name"] == "test-full")
-            assert full["schema_version"] == 12
+            assert full["schema_version"] == 13
             assert full["has_transcode"] is True
             assert full["has_transcription"] is True
 
@@ -495,7 +495,7 @@ class TestConcurrentHealthRequests:
         # Create a valid policy for comparison (phased format required)
         valid_policy = policies_dir / "good-policy.yaml"
         valid_policy.write_text(
-            "schema_version: 12\n"
+            "schema_version: 13\n"
             "phases:\n"
             "  - name: apply\n"
             "    default_flags:\n"
@@ -539,7 +539,7 @@ class TestConcurrentHealthRequests:
             # Valid policy should have no error
             good = next(p for p in data["policies"] if p["name"] == "good-policy")
             assert good["parse_error"] is None
-            assert good["schema_version"] == 12
+            assert good["schema_version"] == 13
 
         finally:
             proc.send_signal(signal.SIGTERM)
@@ -627,10 +627,10 @@ class TestConcurrentHealthRequests:
         policies_dir.mkdir(parents=True, exist_ok=True)
 
         yaml_policy = policies_dir / "policy-yaml.yaml"
-        yaml_policy.write_text("schema_version: 12\n")
+        yaml_policy.write_text("schema_version: 13\n")
 
         yml_policy = policies_dir / "policy-yml.yml"
-        yml_policy.write_text("schema_version: 12\n")
+        yml_policy.write_text("schema_version: 13\n")
 
         env = os.environ.copy()
         env["VPO_DATABASE_PATH"] = str(temp_db)

@@ -58,7 +58,7 @@ def make_policy_with_audio_filter(
 ) -> EvaluationPolicy:
     """Create a test policy with audio filter configuration."""
     return EvaluationPolicy(
-        audio_filter=AudioFilterConfig(
+        keep_audio=AudioFilterConfig(
             languages=languages,
             minimum=minimum,
             fallback=fallback,
@@ -175,7 +175,7 @@ class TestAudioTrackFiltering:
             make_audio_track(index=1, language="eng"),
             make_audio_track(index=2, language="fra"),
         ]
-        policy = EvaluationPolicy(schema_version=12)  # No audio_filter
+        policy = EvaluationPolicy(schema_version=13)  # No audio_filter
 
         dispositions = compute_track_dispositions(tracks, policy)
 
@@ -479,8 +479,8 @@ def make_policy_with_subtitle_filter(
     from vpo.policy.types import SubtitleFilterConfig
 
     return EvaluationPolicy(
-        schema_version=12,
-        subtitle_filter=SubtitleFilterConfig(
+        schema_version=13,
+        keep_subtitles=SubtitleFilterConfig(
             languages=languages,
             preserve_forced=preserve_forced,
             remove_all=remove_all,
@@ -574,7 +574,7 @@ class TestSubtitleLanguageFiltering:
             make_subtitle_track(index=2, language="eng"),
             make_subtitle_track(index=3, language="fra"),
         ]
-        policy = EvaluationPolicy(schema_version=12)  # No subtitle filter
+        policy = EvaluationPolicy(schema_version=13)  # No subtitle filter
 
         dispositions = compute_track_dispositions(tracks, policy)
 
@@ -770,8 +770,8 @@ def make_policy_with_attachment_filter(
     from vpo.policy.types import AttachmentFilterConfig
 
     return EvaluationPolicy(
-        schema_version=12,
-        attachment_filter=AttachmentFilterConfig(
+        schema_version=13,
+        filter_attachments=AttachmentFilterConfig(
             remove_all=remove_all,
         ),
     )
@@ -818,7 +818,7 @@ class TestAttachmentRemoval:
             make_audio_track(index=1, language="eng"),
             make_attachment_track(index=2, codec="ttf", title="Font.ttf"),
         ]
-        policy = EvaluationPolicy(schema_version=12)  # No attachment filter
+        policy = EvaluationPolicy(schema_version=13)  # No attachment filter
 
         dispositions = compute_track_dispositions(tracks, policy)
 
@@ -1357,8 +1357,8 @@ def make_v10_policy_with_audio_filter(
 ) -> EvaluationPolicy:
     """Create a test policy with music/sfx/non_speech filter options."""
     return EvaluationPolicy(
-        schema_version=12,
-        audio_filter=AudioFilterConfig(
+        schema_version=13,
+        keep_audio=AudioFilterConfig(
             languages=languages,
             minimum=minimum,
             fallback=fallback,

@@ -1,20 +1,20 @@
-# Single Phase Minimal Policy (V12)
-# Simplest possible V12 policy structure
+# Single Phase Minimal Policy (V13)
+# Simplest possible V13 policy structure
 #
 # Good starting point for new users. Keeps only English audio and subtitles,
 # removing all other language tracks. No transcoding, no reordering.
 #
 # Usage:
 #   vpo policy run -p single-phase-minimal.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Minimal Track Filter
 description: Keep only English audio and subtitles — the simplest possible policy.
 
 config:
   # Preferred audio languages in priority order (ISO 639-2/B codes).
   # "und" = undefined/untagged tracks — kept to avoid dropping unlabeled audio.
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng]
 
   # What to do when a phase fails for a file:
   #   skip     - skip remaining phases for this file, continue with next file
@@ -26,12 +26,12 @@ phases:
   - name: filter
     # Audio filter: remove audio tracks whose language is not in the list.
     # At least 1 audio track is always preserved (minimum: 1 is the default).
-    audio_filter:
+    keep_audio:
       languages: [eng, und]
       minimum: 1  # Never create an audio-less file
 
     # Subtitle filter: remove subtitle tracks not matching these languages.
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng]
       # Keep forced subtitle tracks even if their language isn't in the list.
       # Forced subs typically contain translations of on-screen foreign text.

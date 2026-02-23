@@ -159,11 +159,9 @@ def _parse_policy_file(path: Path) -> PolicySummary:
             config = {}
 
         # Extract language preferences (check config first, then root level)
-        audio_languages = config.get(
-            "audio_language_preference", data.get("audio_language_preference", [])
-        )
+        audio_languages = config.get("audio_languages", data.get("audio_languages", []))
         subtitle_languages = config.get(
-            "subtitle_language_preference", data.get("subtitle_language_preference", [])
+            "subtitle_languages", data.get("subtitle_languages", [])
         )
 
         # Extract transcription enabled status (check phases for phased policies)

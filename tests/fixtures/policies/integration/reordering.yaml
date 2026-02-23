@@ -1,14 +1,14 @@
 # Track reordering policy
 # Used for testing track order changes via mkvmerge
-schema_version: 12
+schema_version: 13
 
 config:
-  audio_language_preference:
+  audio_languages:
     - eng
     - jpn
     - fra
     - deu
-  subtitle_language_preference:
+  subtitle_languages:
     - eng
     - jpn
   commentary_patterns:

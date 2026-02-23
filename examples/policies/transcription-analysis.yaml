@@ -1,4 +1,4 @@
-# Transcription Analysis Policy (V12)
+# Transcription Analysis Policy (V13)
 # Two-phase workflow for language detection and track organization
 #
 # Uses whisper-based transcription to analyze audio tracks and detect:
@@ -10,13 +10,13 @@
 #
 # Usage:
 #   vpo policy run -p transcription-analysis.yaml /path/to/videos/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Transcription & Organize
 description: Detect audio languages and commentary via transcription, then sort tracks and set defaults.
 
 config:
-  audio_language_preference: [eng, jpn, und]
-  subtitle_language_preference: [eng, jpn, und]
+  audio_languages: [eng, jpn, und]
+  subtitle_languages: [eng, jpn, und]
 
   # Commentary patterns are regex patterns matched against track titles.
   # Tracks matching any pattern are classified as commentary for ordering/filtering.

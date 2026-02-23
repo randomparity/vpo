@@ -8,44 +8,43 @@
 # - All subtitle tracks
 # - Font attachments and cover art
 
-schema_version: 3
+schema_version: 13
 
-# Track type ordering
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - attachment
+config:
+  audio_languages: [eng, und]
+  subtitle_languages: [eng]
+  on_error: continue
 
-# Language preferences
-audio_language_preference:
-  - eng
-  - und
+phases:
+  - name: cleanup
+    # Track type ordering
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - attachment
 
-subtitle_language_preference:
-  - eng
+    # Default flag behavior
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 
-# Default flag behavior
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+    # Keep only English audio
+    keep_audio:
+      languages:
+        - eng
+        - und
+      minimum: 1
+      fallback:
+        # Keep first track if no English found (safety measure)
+        mode: keep_first
 
-# V3: Keep only English audio
-audio_filter:
-  languages:
-    - eng
-    - und
-  minimum: 1
-  fallback:
-    # Keep first track if no English found (safety measure)
-    mode: keep_first
+    # Remove ALL subtitles
+    keep_subtitles:
+      remove_all: true
 
-# V3: Remove ALL subtitles
-subtitle_filter:
-  remove_all: true
-
-# V3: Remove ALL attachments (fonts, cover art)
-attachment_filter:
-  remove_all: true
+    # Remove ALL attachments (fonts, cover art)
+    filter_attachments:
+      remove_all: true

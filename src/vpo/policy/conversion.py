@@ -16,15 +16,12 @@ from vpo.policy.pydantic_models import (
     ContainerMetadataConditionModel,
     CountConditionModel,
     ExistsConditionModel,
-    HardwareAccelConfigModel,
     IsDubbedConditionModel,
     IsOriginalConditionModel,
     PhaseModel,
     PluginMetadataConditionModel,
     PolicyModel,
     PreferenceCriterionModel,
-    QualitySettingsModel,
-    ScalingSettingsModel,
     SkipConditionModel,
     SkipIfExistsModel,
     SynthesisTrackDefinitionModel,
@@ -53,11 +50,11 @@ from vpo.policy.types import (
     FailAction,
     FileTimestampConfig,
     GlobalConfig,
-    HardwareAccelConfig,
     HardwareAccelMode,
     IsDubbedCondition,
     IsOriginalCondition,
     LanguageFallbackConfig,
+    MatchMode,
     MetadataComparisonOperator,
     NotCondition,
     OnErrorMode,
@@ -67,11 +64,9 @@ from vpo.policy.types import (
     PluginMetadataCondition,
     PluginMetadataReference,
     PolicySchema,
-    QualityMode,
-    QualitySettings,
+    RulesConfig,
     RunIfCondition,
     ScaleAlgorithm,
-    ScalingSettings,
     SetContainerMetadataAction,
     SetDefaultAction,
     SetForcedAction,
@@ -464,6 +459,22 @@ def _convert_actions(
     return _convert_action(models)
 
 
+def _convert_when_condition(when: str | ConditionModel) -> Condition:
+    """Convert a when field (expression string or structured model) to Condition.
+
+    Args:
+        when: Either an expression string or a ConditionModel.
+
+    Returns:
+        Parsed Condition dataclass.
+    """
+    if isinstance(when, str):
+        from vpo.policy.expressions import parse_expression
+
+        return parse_expression(when)
+    return _convert_condition(when)
+
+
 def _convert_conditional_rule(model: ConditionalRuleModel) -> ConditionalRule:
     """Convert ConditionalRuleModel to ConditionalRule dataclass."""
     then_actions = _convert_actions(model.then)
@@ -474,7 +485,7 @@ def _convert_conditional_rule(model: ConditionalRuleModel) -> ConditionalRule:
 
     return ConditionalRule(
         name=model.name,
-        when=_convert_condition(model.when),
+        when=_convert_when_condition(model.when),
         then_actions=then_actions,
         else_actions=else_actions,
     )
@@ -573,10 +584,10 @@ def _convert_synthesis_track_definition(
     # Convert source preferences to tuple of dicts
     source_prefer = tuple(_convert_preference_criterion(p) for p in model.source.prefer)
 
-    # Convert create_if condition if present
+    # Convert create_if condition if present (str = expression, dict = structured)
     create_if: Condition | None = None
     if model.create_if is not None:
-        create_if = _convert_condition(model.create_if)
+        create_if = _convert_when_condition(model.create_if)
 
     # Convert skip_if_exists criteria if present (V8+)
     skip_if_exists = _convert_skip_if_exists(model.skip_if_exists)
@@ -624,36 +635,14 @@ def _convert_skip_condition(model: SkipConditionModel | None) -> SkipCondition |
     )
 
 
-def _convert_quality_settings(
-    model: QualitySettingsModel | None,
-) -> QualitySettings | None:
-    """Convert QualitySettingsModel to QualitySettings dataclass."""
-    if model is None:
-        return None
+def _convert_video_transcode_config(
+    model: VideoTranscodeConfigModel | None,
+) -> VideoTranscodeConfig | None:
+    """Convert VideoTranscodeConfigModel to VideoTranscodeConfig dataclass.
 
-    # Convert mode string to enum
-    mode_map = {
-        "crf": QualityMode.CRF,
-        "bitrate": QualityMode.BITRATE,
-        "constrained_quality": QualityMode.CONSTRAINED_QUALITY,
-    }
-
-    return QualitySettings(
-        mode=mode_map[model.mode],
-        crf=model.crf,
-        bitrate=model.bitrate,
-        min_bitrate=model.min_bitrate,
-        max_bitrate=model.max_bitrate,
-        preset=model.preset,
-        tune=model.tune,
-        two_pass=model.two_pass,
-    )
-
-
-def _convert_scaling_settings(
-    model: ScalingSettingsModel | None,
-) -> ScalingSettings | None:
-    """Convert ScalingSettingsModel to ScalingSettings dataclass."""
+    V13 uses flattened fields — quality, scaling, and hardware acceleration
+    settings are mapped directly without intermediate sub-objects.
+    """
     if model is None:
         return None
 
@@ -664,24 +653,8 @@ def _convert_scaling_settings(
         "bilinear": ScaleAlgorithm.BILINEAR,
     }
 
-    return ScalingSettings(
-        max_resolution=model.max_resolution,
-        max_width=model.max_width,
-        max_height=model.max_height,
-        algorithm=algo_map[model.algorithm],
-        upscale=model.upscale,
-    )
-
-
-def _convert_hardware_accel_config(
-    model: HardwareAccelConfigModel | None,
-) -> HardwareAccelConfig | None:
-    """Convert HardwareAccelConfigModel to HardwareAccelConfig dataclass."""
-    if model is None:
-        return None
-
-    # Convert enabled string to enum
-    mode_map = {
+    # Convert hardware acceleration mode string to enum
+    hw_map = {
         "auto": HardwareAccelMode.AUTO,
         "nvenc": HardwareAccelMode.NVENC,
         "qsv": HardwareAccelMode.QSV,
@@ -689,34 +662,26 @@ def _convert_hardware_accel_config(
         "none": HardwareAccelMode.NONE,
     }
 
-    mode = mode_map.get(model.enabled)
-    if mode is None:
-        raise ValueError(
-            f"Invalid hardware acceleration mode: '{model.enabled}'. "
-            f"Must be one of: {', '.join(sorted(mode_map.keys()))}"
-        )
-
-    return HardwareAccelConfig(
-        enabled=mode,
-        fallback_to_cpu=model.fallback_to_cpu,
-    )
-
-
-def _convert_video_transcode_config(
-    model: VideoTranscodeConfigModel | None,
-) -> VideoTranscodeConfig | None:
-    """Convert VideoTranscodeConfigModel to VideoTranscodeConfig dataclass."""
-    if model is None:
-        return None
-
     return VideoTranscodeConfig(
-        target_codec=model.target_codec,
+        to=model.to,
         skip_if=_convert_skip_condition(model.skip_if),
-        quality=_convert_quality_settings(model.quality),
-        scaling=_convert_scaling_settings(model.scaling),
-        hardware_acceleration=_convert_hardware_accel_config(
-            model.hardware_acceleration
-        ),
+        # Quality (flattened)
+        crf=model.crf,
+        preset=model.preset,
+        tune=model.tune,
+        target_bitrate=model.target_bitrate,
+        min_bitrate=model.min_bitrate,
+        max_bitrate=model.max_bitrate,
+        two_pass=model.two_pass,
+        # Scaling (flattened)
+        max_resolution=model.max_resolution,
+        max_width=model.max_width,
+        max_height=model.max_height,
+        scale_algorithm=algo_map[model.scale_algorithm],
+        upscale=model.upscale,
+        # Hardware acceleration (flattened)
+        hw=hw_map[model.hw],
+        hw_fallback=model.hw_fallback,
         ffmpeg_args=tuple(model.ffmpeg_args) if model.ffmpeg_args else None,
     )
 
@@ -729,9 +694,9 @@ def _convert_audio_transcode_config(
         return None
 
     return AudioTranscodeConfig(
-        preserve_codecs=tuple(model.preserve_codecs),
-        transcode_to=model.transcode_to,
-        transcode_bitrate=model.transcode_bitrate,
+        preserve=tuple(model.preserve),
+        to=model.to,
+        bitrate=model.bitrate,
     )
 
 
@@ -762,41 +727,41 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             preserve_metadata=phase.container.preserve_metadata,
         )
 
-    # Convert audio_filter
-    audio_filter: AudioFilterConfig | None = None
-    if phase.audio_filter is not None:
+    # Convert keep_audio (was audio_filter)
+    keep_audio: AudioFilterConfig | None = None
+    if phase.keep_audio is not None:
         fallback: LanguageFallbackConfig | None = None
-        if phase.audio_filter.fallback is not None:
-            fallback = LanguageFallbackConfig(mode=phase.audio_filter.fallback.mode)
-        audio_filter = AudioFilterConfig(
-            languages=tuple(phase.audio_filter.languages),
+        if phase.keep_audio.fallback is not None:
+            fallback = LanguageFallbackConfig(mode=phase.keep_audio.fallback.mode)
+        keep_audio = AudioFilterConfig(
+            languages=tuple(phase.keep_audio.languages),
             fallback=fallback,
-            minimum=phase.audio_filter.minimum,
-            keep_music_tracks=phase.audio_filter.keep_music_tracks,
-            exclude_music_from_language_filter=phase.audio_filter.exclude_music_from_language_filter,
-            keep_sfx_tracks=phase.audio_filter.keep_sfx_tracks,
-            exclude_sfx_from_language_filter=phase.audio_filter.exclude_sfx_from_language_filter,
-            keep_non_speech_tracks=phase.audio_filter.keep_non_speech_tracks,
-            exclude_non_speech_from_language_filter=phase.audio_filter.exclude_non_speech_from_language_filter,
+            minimum=phase.keep_audio.minimum,
+            keep_music_tracks=phase.keep_audio.keep_music_tracks,
+            exclude_music_from_language_filter=phase.keep_audio.exclude_music_from_language_filter,
+            keep_sfx_tracks=phase.keep_audio.keep_sfx_tracks,
+            exclude_sfx_from_language_filter=phase.keep_audio.exclude_sfx_from_language_filter,
+            keep_non_speech_tracks=phase.keep_audio.keep_non_speech_tracks,
+            exclude_non_speech_from_language_filter=phase.keep_audio.exclude_non_speech_from_language_filter,
         )
 
-    # Convert subtitle_filter
-    subtitle_filter: SubtitleFilterConfig | None = None
-    if phase.subtitle_filter is not None:
+    # Convert keep_subtitles (was subtitle_filter)
+    keep_subtitles: SubtitleFilterConfig | None = None
+    if phase.keep_subtitles is not None:
         languages = None
-        if phase.subtitle_filter.languages is not None:
-            languages = tuple(phase.subtitle_filter.languages)
-        subtitle_filter = SubtitleFilterConfig(
+        if phase.keep_subtitles.languages is not None:
+            languages = tuple(phase.keep_subtitles.languages)
+        keep_subtitles = SubtitleFilterConfig(
             languages=languages,
-            preserve_forced=phase.subtitle_filter.preserve_forced,
-            remove_all=phase.subtitle_filter.remove_all,
+            preserve_forced=phase.keep_subtitles.preserve_forced,
+            remove_all=phase.keep_subtitles.remove_all,
         )
 
-    # Convert attachment_filter
-    attachment_filter: AttachmentFilterConfig | None = None
-    if phase.attachment_filter is not None:
-        attachment_filter = AttachmentFilterConfig(
-            remove_all=phase.attachment_filter.remove_all,
+    # Convert filter_attachments (was attachment_filter)
+    filter_attachments: AttachmentFilterConfig | None = None
+    if phase.filter_attachments is not None:
+        filter_attachments = AttachmentFilterConfig(
+            remove_all=phase.filter_attachments.remove_all,
         )
 
     # Convert track_order
@@ -821,10 +786,14 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             preferred_audio_codec=preferred_codec,
         )
 
-    # Convert conditional rules
-    conditional: tuple[ConditionalRule, ...] | None = None
-    if phase.conditional is not None:
-        conditional = _convert_conditional_rules(phase.conditional)
+    # Convert rules (was conditional — now wraps in RulesConfig with match mode)
+    rules: RulesConfig | None = None
+    if phase.rules is not None:
+        match_mode_map = {"first": MatchMode.FIRST, "all": MatchMode.ALL}
+        rules = RulesConfig(
+            match=match_mode_map[phase.rules.match],
+            items=_convert_conditional_rules(phase.rules.items),
+        )
 
     # Convert audio_synthesis
     audio_synthesis: AudioSynthesisConfig | None = None
@@ -877,10 +846,11 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             clear_all_titles=phase.subtitle_actions.clear_all_titles,
         )
 
-    # Convert skip_when condition
+    # Convert skip_when condition (V13: includes required mode)
     skip_when: PhaseSkipCondition | None = None
     if phase.skip_when is not None:
         skip_when = PhaseSkipCondition(
+            mode=phase.skip_when.mode,
             video_codec=(
                 tuple(phase.skip_when.video_codec)
                 if phase.skip_when.video_codec
@@ -920,12 +890,12 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
     return PhaseDefinition(
         name=phase.name,
         container=container,
-        audio_filter=audio_filter,
-        subtitle_filter=subtitle_filter,
-        attachment_filter=attachment_filter,
+        keep_audio=keep_audio,
+        keep_subtitles=keep_subtitles,
+        filter_attachments=filter_attachments,
         track_order=track_order,
         default_flags=default_flags,
-        conditional=conditional,
+        rules=rules,
         audio_synthesis=audio_synthesis,
         transcode=transcode,
         audio_transcode=audio_transcode,
@@ -942,10 +912,10 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
 
 def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     """Convert PolicyModel to PolicySchema dataclass."""
-    # Convert global config
+    # Convert global config (V13 field names)
     global_config = GlobalConfig(
-        audio_language_preference=tuple(model.config.audio_language_preference),
-        subtitle_language_preference=tuple(model.config.subtitle_language_preference),
+        audio_languages=tuple(model.config.audio_languages),
+        subtitle_languages=tuple(model.config.subtitle_languages),
         commentary_patterns=tuple(model.config.commentary_patterns),
         on_error=_ON_ERROR_MAP[model.config.on_error],
     )
@@ -954,7 +924,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     phases = tuple(_convert_phase_model(p) for p in model.phases)
 
     return PolicySchema(
-        schema_version=12,
+        schema_version=13,
         config=global_config,
         phases=phases,
         name=model.name,

@@ -327,19 +327,19 @@ DEFAULT_POLICY_TEMPLATE = """\
 # This policy provides sensible defaults for organizing track metadata.
 # Customize as needed for your library.
 
-schema_version: 12
+schema_version: 13
 
 # Global configuration
 config:
   # Preferred audio languages (ISO 639-2 codes)
   # First matching language becomes the default audio track
-  audio_language_preference:
+  audio_languages:
     - eng  # English
     - und  # Undefined/unknown
 
   # Preferred subtitle languages (ISO 639-2 codes)
   # Used when set_preferred_subtitle_default is enabled
-  subtitle_language_preference:
+  subtitle_languages:
     - eng  # English
     - und  # Undefined/unknown
 

@@ -17,8 +17,8 @@ from vpo.policy.pydantic_models import (
 )
 from vpo.policy.types import PolicySchema
 
-# Current supported schema version (only V12 is supported)
-SCHEMA_VERSION = 12
+# Current supported schema version (only V13 is supported)
+SCHEMA_VERSION = 13
 
 # RESERVED_PHASE_NAMES is imported from pydantic_models
 
@@ -73,11 +73,11 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
     Raises:
         PolicyValidationError: If the policy data is invalid.
     """
-    # Check schema version - only V12 is supported
+    # Check schema version - only V13 is supported
     schema_version = data.get("schema_version")
-    if schema_version != 12:
+    if schema_version != 13:
         raise PolicyValidationError(
-            f"Only schema_version 12 is supported, got {schema_version}"
+            f"Only schema_version 13 is supported, got {schema_version}"
         )
 
     # Policies must have a 'phases' key
@@ -89,10 +89,10 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
             "phases:\n"
             "  - name: apply\n"
             "    track_order: [...]  # your existing fields\n"
-            "    audio_filter: {...}\n"
+            "    keep_audio: {...}\n"
             "config:\n"
-            "  audio_language_preference: [...]  # move global settings here\n"
-            "  subtitle_language_preference: [...]"
+            "  audio_languages: [...]  # move global settings here\n"
+            "  subtitle_languages: [...]"
         )
 
     try:

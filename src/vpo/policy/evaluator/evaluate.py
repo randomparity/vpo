@@ -101,9 +101,9 @@ def evaluate_policy(
     conditional_result: ConditionalResult | None = None
     skip_flags = SkipFlags()
 
-    if policy.has_conditional_rules:
+    if policy.has_rules:
         conditional_result = evaluate_conditional_rules(
-            rules=policy.conditional_rules,
+            rules=policy.rules,
             tracks=tracks,
             file_path=file_path,
             language_results=language_results,
@@ -318,11 +318,11 @@ def evaluate_policy(
         subtitle_tracks = [t for t in tracks if t.track_type.casefold() == "subtitle"]
 
         if subtitle_tracks and not _audio_matches_language_preference(
-            audio_tracks, policy.audio_language_preference, matcher
+            audio_tracks, policy.audio_languages, matcher
         ):
             # Find the preferred subtitle track
             forced_subtitle = _find_preferred_track(
-                subtitle_tracks, policy.subtitle_language_preference, matcher
+                subtitle_tracks, policy.subtitle_languages, matcher
             )
             if forced_subtitle is not None and not forced_subtitle.is_forced:
                 actions.append(

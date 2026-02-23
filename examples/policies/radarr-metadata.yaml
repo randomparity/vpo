@@ -1,4 +1,4 @@
-# Radarr Metadata-Driven Movie Policy (V12)
+# Radarr Metadata-Driven Movie Policy (V13)
 #
 # Demonstrates using Radarr plugin metadata in policy conditions and actions.
 # Requires the radarr-metadata plugin to be configured in ~/.vpo/config.toml.
@@ -24,15 +24,15 @@
 #
 # Usage:
 #   vpo policy run -p radarr-metadata.yaml /path/to/movies/ --dry-run
-schema_version: 12
+schema_version: 13
 name: Radarr Movie Pipeline
 description: >-
   Metadata-driven movie processing using Radarr for language tagging,
   subtitle forcing, and smart transcoding with 4k/anime skip logic.
 
 config:
-  audio_language_preference: [eng, und]
-  subtitle_language_preference: [eng, und]
+  audio_languages: [eng, und]
+  subtitle_languages: [eng, und]
   commentary_patterns: [commentary, director, "audio description"]
   on_error: continue
 
@@ -41,6 +41,7 @@ phases:
   # Skip if already MKV — no work to do.
   - name: prepare
     skip_when:
+      mode: any
       container: [mkv]
     container:
       target: mkv
@@ -51,69 +52,71 @@ phases:
   # Use Radarr metadata to set video language, force subtitles for
   # foreign films, and flag special editions or low-quality releases.
   - name: metadata
-    conditional:
-      # Set the video track language from Radarr's original_language field.
-      # This corrects "und" (undefined) video tracks when Radarr knows
-      # the movie's actual language.
-      - name: set-video-language
-        when:
-          plugin_metadata:
-            plugin: radarr
-            field: original_language
-            operator: exists
-        then:
-          - set_language:
-              track_type: video
-              from_plugin_metadata:
-                plugin: radarr
-                field: original_language
+    rules:
+      match: first
+      items:
+        # Set the video track language from Radarr's original_language field.
+        # This corrects "und" (undefined) video tracks when Radarr knows
+        # the movie's actual language.
+        - name: set-video-language
+          when:
+            plugin_metadata:
+              plugin: radarr
+              field: original_language
+              operator: exists
+          then:
+            - set_language:
+                track_type: video
+                from_plugin_metadata:
+                  plugin: radarr
+                  field: original_language
 
-      # Force English subtitles when the movie is not originally in English.
-      # Uses "and" to require both: foreign language AND English subs exist.
-      # Viewers watching a Japanese or French film will get subs by default.
-      - name: force-subs-for-foreign-films
-        when:
-          and:
-            - plugin_metadata:
-                plugin: radarr
-                field: original_language
-                operator: neq
-                value: eng
-            - exists:
+        # Force English subtitles when the movie is not originally in English.
+        # Uses "and" to require both: foreign language AND English subs exist.
+        # Viewers watching a Japanese or French film will get subs by default.
+        - name: force-subs-for-foreign-films
+          when:
+            and:
+              - plugin_metadata:
+                  plugin: radarr
+                  field: original_language
+                  operator: neq
+                  value: eng
+              - exists:
+                  track_type: subtitle
+                  language: eng
+          then:
+            - set_forced:
                 track_type: subtitle
                 language: eng
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-          - set_default:
-              track_type: subtitle
-              language: eng
-              value: true
+                value: true
+            - set_default:
+                track_type: subtitle
+                language: eng
+                value: true
 
-      # Warn about unmonitored movies — these may be stale or unwanted.
-      - name: warn-unmonitored
-        when:
-          plugin_metadata:
-            plugin: radarr
-            field: monitored
-            operator: eq
-            value: false
-        then:
-          - warn: "Movie is unmonitored in Radarr: {filename}"
+        # Warn about unmonitored movies — these may be stale or unwanted.
+        - name: warn-unmonitored
+          when:
+            plugin_metadata:
+              plugin: radarr
+              field: monitored
+              operator: eq
+              value: false
+          then:
+            - warn: "Movie is unmonitored in Radarr: {filename}"
 
-      # Warn when a movie has a low TMDb rating (below 5.0).
-      # Useful for flagging potentially low-quality content in batch runs.
-      - name: warn-low-rated
-        when:
-          plugin_metadata:
-            plugin: radarr
-            field: rating_tmdb
-            operator: lt
-            value: 5.0
-        then:
-          - warn: "Low TMDb rating (<5.0): {filename}"
+        # Warn when a movie has a low TMDb rating (below 5.0).
+        # Useful for flagging potentially low-quality content in batch runs.
+        - name: warn-low-rated
+          when:
+            plugin_metadata:
+              plugin: radarr
+              field: rating_tmdb
+              operator: lt
+              value: 5.0
+          then:
+            - warn: "Low TMDb rating (<5.0): {filename}"
 
   # Phase 3: Smart transcoding.
   #
@@ -122,64 +125,63 @@ phases:
   # For everything else, compress to HEVC at reasonable quality.
   - name: compress
     skip_when:
+      mode: any
       video_codec: [hevc, h265, x265]
       file_size_under: 500MB
     on_error: skip
-    conditional:
-      # Skip video transcode entirely for movies tagged "4k" in Radarr.
-      # These are meant to stay at full UHD quality.
-      - name: preserve-4k-tagged
-        when:
-          plugin_metadata:
-            plugin: radarr
-            field: tags
-            operator: contains
-            value: "4k"
-        then:
-          - skip_video_transcode: true
-          - warn: "Skipping video transcode for 4k-tagged movie: {filename}"
+    rules:
+      match: first
+      items:
+        # Skip video transcode entirely for movies tagged "4k" in Radarr.
+        # These are meant to stay at full UHD quality.
+        - name: preserve-4k-tagged
+          when:
+            plugin_metadata:
+              plugin: radarr
+              field: tags
+              operator: contains
+              value: "4k"
+          then:
+            - skip_video_transcode: true
+            - warn: "Skipping video transcode for 4k-tagged movie: {filename}"
 
-      # Skip transcode for anime movies — they benefit from different
-      # encoding settings (tune=animation) that this policy doesn't cover.
-      - name: skip-anime-transcode
-        when:
-          plugin_metadata:
-            plugin: radarr
-            field: genres
-            operator: contains
-            value: "Animation"
-        then:
-          - skip_video_transcode: true
+        # Skip transcode for anime movies — they benefit from different
+        # encoding settings (tune=animation) that this policy doesn't cover.
+        - name: skip-anime-transcode
+          when:
+            plugin_metadata:
+              plugin: radarr
+              field: genres
+              operator: contains
+              value: "Animation"
+          then:
+            - skip_video_transcode: true
 
     transcode:
       video:
-        target_codec: hevc
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
+        to: hevc
+        crf: 20
+        preset: medium
+        max_resolution: 1080p
+        scale_algorithm: lanczos
+        hw: auto
+        hw_fallback: true
       audio:
-        preserve_codecs: [truehd, "dts-hd ma", flac, eac3]
-        transcode_to: aac
-        transcode_bitrate: 192k
+        preserve: [truehd, "dts-hd ma", flac, eac3]
+        to: aac
+        bitrate: 192k
 
   # Phase 4: Track cleanup and ordering.
   - name: organize
-    audio_filter:
+    keep_audio:
       languages: [eng, und]
       minimum: 1
       fallback:
         mode: content_language
-    subtitle_filter:
+    keep_subtitles:
       languages: [eng, und]
       preserve_forced: true
-    attachment_filter:
+    filter_attachments:
       remove_all: true  # Strip fonts and cover art for cleaner files
     track_order:
       - video
