@@ -128,6 +128,9 @@ def parse_expression(source: str) -> Condition:
     return result
 
 
+_MAX_DEPTH = 50  # Guard against pathological nesting
+
+
 class _Parser:
     """Recursive descent parser for condition expressions."""
 
@@ -135,6 +138,7 @@ class _Parser:
         self._tokens = tokens
         self._source = source
         self._pos = 0
+        self._depth = 0
 
     def current(self) -> Token:
         """Return the current token without consuming it."""
@@ -217,9 +221,15 @@ class _Parser:
 
         # Parenthesized expression
         if tok.type == TokenType.LPAREN:
+            self._depth += 1
+            if self._depth > _MAX_DEPTH:
+                raise self._error(
+                    f"Expression nesting exceeds maximum depth of {_MAX_DEPTH}"
+                )
             self.advance()
             expr = self.parse_expression()
             self.expect(TokenType.RPAREN)
+            self._depth -= 1
             return expr
 
         # Function call (IDENT followed by LPAREN)
@@ -340,6 +350,18 @@ class _Parser:
 
     # --- Condition builders ---
 
+    # Class-level dispatch map: function name -> builder method name.
+    # Avoids rebuilding a dict of bound methods on every _build_condition call.
+    _BUILDER_METHODS: dict[str, str] = {
+        "exists": "_build_exists",
+        "count": "_build_count",
+        "multi_language": "_build_multi_language",
+        "plugin": "_build_plugin",
+        "container_meta": "_build_container_meta",
+        "is_original": "_build_is_original",
+        "is_dubbed": "_build_is_dubbed",
+    }
+
     def _build_condition(
         self,
         func_name: str,
@@ -350,18 +372,8 @@ class _Parser:
         trailing_value: Any,
     ) -> Condition:
         """Dispatch to the appropriate condition builder based on function name."""
-        builders = {
-            "exists": self._build_exists,
-            "count": self._build_count,
-            "multi_language": self._build_multi_language,
-            "plugin": self._build_plugin,
-            "container_meta": self._build_container_meta,
-            "is_original": self._build_is_original,
-            "is_dubbed": self._build_is_dubbed,
-        }
-
-        builder = builders.get(func_name)
-        if builder is None:
+        method_name = self._BUILDER_METHODS.get(func_name)
+        if method_name is None:
             raise ParseError(
                 f"Unknown function: '{func_name}'",
                 source=self._source,
@@ -370,6 +382,7 @@ class _Parser:
                 column=name_tok.column,
             )
 
+        builder = getattr(self, method_name)
         return builder(name_tok, positional, named, trailing_op, trailing_value)
 
     def _build_exists(
@@ -499,9 +512,27 @@ class _Parser:
                     column=name_tok.column,
                 )
             if name == "threshold":
-                kwargs["threshold"] = float(value)
+                try:
+                    kwargs["threshold"] = float(value)
+                except (TypeError, ValueError) as e:
+                    raise ParseError(
+                        f"Invalid threshold value: {value!r} ({e})",
+                        source=self._source,
+                        position=name_tok.position,
+                        line=name_tok.line,
+                        column=name_tok.column,
+                    ) from e
             elif name == "track_index":
-                kwargs["track_index"] = int(value)
+                try:
+                    kwargs["track_index"] = int(value)
+                except (TypeError, ValueError) as e:
+                    raise ParseError(
+                        f"Invalid track_index value: {value!r} ({e})",
+                        source=self._source,
+                        position=name_tok.position,
+                        line=name_tok.line,
+                        column=name_tok.column,
+                    ) from e
             elif name == "primary_language":
                 kwargs["primary_language"] = str(value)
             else:

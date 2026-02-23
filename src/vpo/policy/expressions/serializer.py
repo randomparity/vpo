@@ -133,17 +133,17 @@ def _serialize_filters(filters: TrackFilters) -> list[str]:
 
     if filters.language is not None:
         if isinstance(filters.language, tuple):
-            vals = ", ".join(filters.language)
+            vals = ", ".join(_quote_filter_val(v) for v in filters.language)
             parts.append(f"lang in [{vals}]")
         else:
-            parts.append(f"lang == {filters.language}")
+            parts.append(f"lang == {_quote_filter_val(filters.language)}")
 
     if filters.codec is not None:
         if isinstance(filters.codec, tuple):
-            vals = ", ".join(filters.codec)
+            vals = ", ".join(_quote_filter_val(v) for v in filters.codec)
             parts.append(f"codec in [{vals}]")
         else:
-            parts.append(f"codec == {filters.codec}")
+            parts.append(f"codec == {_quote_filter_val(filters.codec)}")
 
     if filters.channels is not None:
         parts.append(_serialize_int_or_comparison("channels", filters.channels))
@@ -175,6 +175,14 @@ def _serialize_filters(filters: TrackFilters) -> list[str]:
     return parts
 
 
+def _quote_filter_val(val: str) -> str:
+    """Quote a filter value if it contains characters that would break parsing."""
+    if not val or " " in val or "-" in val or not val.isalnum():
+        escaped = val.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    return val
+
+
 def _serialize_int_or_comparison(name: str, value: int | Comparison) -> str:
     if isinstance(value, Comparison):
         op_str = _COMP_OP_STR[value.operator]
@@ -197,7 +205,9 @@ def _serialize_plugin(cond: PluginMetadataCondition) -> str:
     base = f"plugin({cond.plugin}, {cond.field})"
     if cond.operator == MetadataComparisonOperator.EXISTS:
         return base
-    op_str = _META_OP_STR.get(cond.operator, "==")
+    op_str = _META_OP_STR.get(cond.operator)
+    if op_str is None:
+        raise ValueError(f"Cannot serialize metadata operator: {cond.operator!r}")
     return f"{base} {op_str} {_format_value(cond.value)}"
 
 
@@ -205,7 +215,9 @@ def _serialize_container_meta(cond: ContainerMetadataCondition) -> str:
     base = f"container_meta({cond.field})"
     if cond.operator == MetadataComparisonOperator.EXISTS:
         return base
-    op_str = _META_OP_STR.get(cond.operator, "==")
+    op_str = _META_OP_STR.get(cond.operator)
+    if op_str is None:
+        raise ValueError(f"Cannot serialize metadata operator: {cond.operator!r}")
     return f"{base} {op_str} {_format_value(cond.value)}"
 
 
@@ -238,8 +250,10 @@ def _format_value(value: str | int | float | bool | None) -> str:
     if isinstance(value, bool):
         return str(value).lower()
     if isinstance(value, str):
-        # Use quotes if the value contains spaces or special characters
-        if " " in value or not value.isalnum():
-            return f'"{value}"'
+        # Escape backslashes and double quotes for safe round-trip
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        # Use quotes if the value contains spaces, special characters, or escapes
+        if " " in value or not value.isalnum() or escaped != value:
+            return f'"{escaped}"'
         return value
     return str(value)

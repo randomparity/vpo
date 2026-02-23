@@ -192,9 +192,20 @@ def _scan_number_or_size(source: str, pos: int, line: int, col: int) -> Token:
 
     # Check if followed by alpha (possible size suffix we missed)
     if end < len(source) and source[end].isalpha():
-        # Consume the suffix as part of a size literal
+        suffix_start = end
         while end < len(source) and source[end].isalpha():
             end += 1
+        suffix = source[suffix_start:end].lower()
+        valid_suffixes = {"k", "kb", "m", "mb", "g", "gb", "t", "tb"}
+        if suffix not in valid_suffixes:
+            raise LexError(
+                f"Invalid size suffix: '{source[suffix_start:end]}'"
+                f" (expected one of: {', '.join(sorted(valid_suffixes))})",
+                source=source,
+                position=pos,
+                line=line,
+                column=col,
+            )
         value = source[pos:end]
         return Token(TokenType.SIZE_LITERAL, value, pos, line, col)
 
