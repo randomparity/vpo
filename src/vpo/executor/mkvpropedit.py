@@ -19,6 +19,27 @@ from vpo.policy.types import ActionType, Plan, PlannedAction
 
 logger = logging.getLogger(__name__)
 
+# Map ffprobe/container_tags field names to mkvpropedit segment info property names.
+# ffprobe reports MKV segment info using different names than mkvpropedit expects.
+# Fields NOT in this map pass through unchanged (ffprobe and mkvpropedit use the
+# same name for those, e.g. "title", "comment").
+_FFPROBE_TO_MKVPROPEDIT_FIELD: dict[str, str] = {
+    "encoder": "writing-application",
+    "creation_time": "date",
+}
+
+# Mandatory Matroska segment info properties that cannot be deleted via
+# --delete. Use --set with an empty string to clear them instead.
+# "writing-application" originates from the "encoder" ffprobe field.
+# "muxing-application" has no standard ffprobe tag equivalent; listed here
+# defensively in case it is supplied as a container_field directly.
+_MANDATORY_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "writing-application",
+        "muxing-application",
+    }
+)
+
 
 class MkvpropeditExecutor:
     """Executor for MKV metadata changes using mkvpropedit.
@@ -252,11 +273,15 @@ class MkvpropeditExecutor:
                     f"SET_CONTAINER_METADATA requires container_field to be set, "
                     f"got container_field={field!r}"
                 )
+            # Map ffprobe field names to mkvpropedit property names
+            prop_name = _FFPROBE_TO_MKVPROPEDIT_FIELD.get(field, field)
             value = action.desired_value if action.desired_value is not None else ""
             if value == "":
-                # Clear/delete the tag
-                return ["--edit", "info", "--delete", field]
-            return ["--edit", "info", "--set", f"{field}={value}"]
+                # Mandatory properties cannot be deleted; clear with --set
+                if prop_name in _MANDATORY_PROPERTIES:
+                    return ["--edit", "info", "--set", f"{prop_name}="]
+                return ["--edit", "info", "--delete", prop_name]
+            return ["--edit", "info", "--set", f"{prop_name}={value}"]
 
         if action.track_index is None:
             raise ValueError(f"Action {action.action_type} requires track_index")

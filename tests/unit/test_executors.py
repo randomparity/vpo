@@ -256,6 +256,61 @@ class TestMkvpropeditExecutor:
         args = executor._action_to_args(action)
         assert args == ["--edit", "info", "--delete", "title"]
 
+    def test_action_to_args_container_metadata_maps_encoder_to_writing_application(
+        self,
+    ):
+        """Encoder field maps to writing-application."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="Lavf61.7.100",
+            desired_value="",
+            container_field="encoder",
+        )
+        args = executor._action_to_args(action)
+        # writing-application is mandatory, so --set with empty instead of --delete
+        assert args == ["--edit", "info", "--set", "writing-application="]
+
+    def test_action_to_args_container_metadata_maps_creation_time_to_date(self):
+        """SET_CONTAINER_METADATA maps ffprobe 'creation_time' to mkvpropedit 'date'."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value=None,
+            desired_value="2024-01-01",
+            container_field="creation_time",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["--edit", "info", "--set", "date=2024-01-01"]
+
+    def test_action_to_args_container_metadata_clears_muxing_application_with_set(self):
+        """muxing-application is mandatory: clearing uses --set, not --delete."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="libebml v1.4.2",
+            desired_value="",
+            container_field="muxing-application",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["--edit", "info", "--set", "muxing-application="]
+
+    def test_action_to_args_container_metadata_clears_creation_time_uses_delete(self):
+        """creation_time maps to 'date', which is not mandatory: uses --delete."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="2023-01-01T00:00:00Z",
+            desired_value="",
+            container_field="creation_time",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["--edit", "info", "--delete", "date"]
+
     def test_action_to_args_container_metadata_none_field_raises(self):
         """SET_CONTAINER_METADATA with None container_field raises ValueError."""
         executor = MkvpropeditExecutor()

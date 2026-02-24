@@ -28,6 +28,7 @@ from vpo.db.queries import (
     update_file_attributes,
     upsert_tracks_for_file,
 )
+from vpo.db.queries.helpers import deserialize_container_tags, serialize_container_tags
 from vpo.db.types import FileInfo, tracks_to_track_info
 from vpo.introspector.ffprobe import (
     FFprobeIntrospector,
@@ -704,6 +705,7 @@ class WorkflowProcessor:
             content_hash=file_record.content_hash,
             container_format=file_record.container_format,
             tracks=tracks,
+            container_tags=deserialize_container_tags(file_record.container_tags),
         )
 
     def _re_introspect(self, file_path: Path) -> FileInfo | None:
@@ -778,13 +780,17 @@ class WorkflowProcessor:
                 file_path,
             )
 
-            # Update file attributes in database
+            # Update file attributes in database.
+            # serialize_container_tags returns None for empty/None dicts;
+            # both store as SQL NULL (empty and absent tags are equivalent).
+            container_tags_json = serialize_container_tags(result.container_tags)
             updated = update_file_attributes(
                 self.conn,
                 file_record.id,
                 size_bytes,
                 modified_at.isoformat(),
                 content_hash,
+                container_tags_json=container_tags_json,
             )
             if not updated:
                 logger.warning(
@@ -816,4 +822,5 @@ class WorkflowProcessor:
             content_hash=content_hash,
             container_format=result.container_format,
             tracks=result.tracks,
+            container_tags=result.container_tags,
         )
