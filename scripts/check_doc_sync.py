@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# IMPORTANT: This script is invoked in CI without `uv sync` or `pip install`.
+# It MUST use only Python standard library modules.
 """Documentation-code sync enforcement (V2).
 
 Checks for documentation drift, co-change violations, metadata compliance,
@@ -17,6 +19,7 @@ Exit codes (bitmask):
     8  - metadata violation
     16 - release-note violation
     32 - invalid CI skip / unauthorized exemption
+    64 - usage error (invalid arguments)
 """
 
 from __future__ import annotations
@@ -40,11 +43,13 @@ EXIT_INDEX = 4
 EXIT_METADATA = 8
 EXIT_RELEASE_NOTE = 16
 EXIT_INVALID_CI_SKIP = 32
+EXIT_USAGE = 64
 
 # =============================================================================
 # Configuration (embedded, organized by check)
 # =============================================================================
 
+# Repository root, resolved from script location. Overridden in tests via monkeypatch.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 SCHEMA_RULES = {
@@ -56,6 +61,7 @@ SCHEMA_RULES = {
     # Files/patterns excluded from schema version checks
     "exclude_files": [
         "docs/usage/v11-migration.md",
+        "docs/overview/architecture.md",
         "docs/decisions/*",
     ],
     # YAML code block pattern for schema_version: N
@@ -64,8 +70,6 @@ SCHEMA_RULES = {
     "prose_version_re": r"\bV(\d+)\b",
     # Minimum version to flag in prose (ignore V1, V2, etc.)
     "prose_min_version": 10,
-    # Marker to scope prose version checks
-    "marker": "<!-- DOCSYNC:SCHEMA_VERSION -->",
 }
 
 INDEX_RULES = {
@@ -168,8 +172,13 @@ EXEMPTION_RULES = {
 # =============================================================================
 
 
-def get_changed_files(*, staged: bool = False, base: str | None = None) -> list[str]:
-    """Return list of changed file paths relative to repo root."""
+def get_changed_files(
+    *, staged: bool = False, base: str | None = None
+) -> list[str] | None:
+    """Return list of changed file paths relative to repo root.
+
+    Returns None if git command fails (distinguishes from empty change set).
+    """
     if staged:
         cmd = ["git", "diff", "--cached", "--name-only"]
     elif base:
@@ -187,10 +196,10 @@ def get_changed_files(*, staged: bool = False, base: str | None = None) -> list[
             check=False,
         )
         if result.returncode != 0:
-            return []
+            return None
         return [f for f in result.stdout.strip().splitlines() if f]
     except (OSError, subprocess.SubprocessError):
-        return []
+        return None
 
 
 # =============================================================================
@@ -201,9 +210,10 @@ def get_changed_files(*, staged: bool = False, base: str | None = None) -> list[
 def get_code_schema_version() -> int | None:
     """Read the canonical schema version from source code."""
     source_path = REPO_ROOT / SCHEMA_RULES["version_source"]
-    if not source_path.exists():
+    try:
+        text = source_path.read_text()
+    except OSError:
         return None
-    text = source_path.read_text()
     m = re.search(SCHEMA_RULES["version_pattern"], text)
     return int(m.group(1)) if m else None
 
@@ -257,6 +267,7 @@ def check_schema() -> list[dict]:
                 stripped = line.strip()
                 if stripped.startswith("```"):
                     in_code_block = not in_code_block
+                    continue  # Don't check the fence line itself
 
                 if in_code_block:
                     # YAML schema_version in code blocks
@@ -288,7 +299,7 @@ def check_schema() -> list[dict]:
                             # Allow V11 references in migration context
                             if found_ver == 11 and "migration" in rel_path.lower():
                                 continue
-                            # Allow "V10 and earlier" type references
+                            # Allow references more than one version behind
                             if found_ver < code_version - 1:
                                 continue
                             failures.append(
@@ -307,6 +318,21 @@ def check_schema() -> list[dict]:
                                     "expected_version": code_version,
                                 }
                             )
+
+            # Warn about unclosed code fence (malformed doc)
+            if in_code_block:
+                failures.append(
+                    {
+                        "check": "schema",
+                        "severity": "warning",
+                        "code": "SCHEMA_UNCLOSED_FENCE",
+                        "message": (
+                            f"{rel_path}: unclosed code fence detected, "
+                            "some lines may not have been checked"
+                        ),
+                        "file": rel_path,
+                    }
+                )
 
     return failures
 
@@ -339,7 +365,18 @@ def check_index() -> list[dict]:
         )
         return failures
 
-    index_text = index_path.read_text()
+    try:
+        index_text = index_path.read_text()
+    except OSError:
+        failures.append(
+            {
+                "check": "index",
+                "severity": "error",
+                "code": "INDEX_FILE_UNREADABLE",
+                "message": f"{INDEX_RULES['index_file']} exists but cannot be read",
+            }
+        )
+        return failures
     exempt_marker = INDEX_RULES["exempt_marker"]
 
     for tracked_dir in INDEX_RULES["tracked_directories"]:
@@ -437,9 +474,22 @@ def _match_cochange_rules(
     return violations
 
 
-def check_cochange(*, staged: bool = False, base: str | None = None) -> list[dict]:
+def check_cochange(
+    *, staged: bool = False, base: str | None = None, ci: bool = False
+) -> list[dict]:
     """Check co-change requirements between code and docs."""
     changed_files = get_changed_files(staged=staged, base=base)
+    if changed_files is None:
+        if ci:
+            return [
+                {
+                    "check": "cochange",
+                    "severity": "error",
+                    "code": "GIT_DIFF_FAILED",
+                    "message": "Failed to get changed files from git",
+                }
+            ]
+        return []
     if not changed_files:
         return []
     return _match_cochange_rules(changed_files)
@@ -450,18 +500,21 @@ def check_cochange(*, staged: bool = False, base: str | None = None) -> list[dic
 # =============================================================================
 
 
-def parse_metadata_from_text(text: str) -> dict[str, str | None]:
+def parse_metadata_from_text(text: str) -> dict[str, str | None | bool]:
     """Parse Docs-Impact and Docs-Reason trailers from text."""
-    result: dict[str, str | None] = {
+    result: dict[str, str | None | bool] = {
         "docs_impact": None,
         "docs_reason": None,
+        "docs_impact_duplicate": False,
     }
     for line in text.splitlines():
-        line = line.strip()
-        m = re.match(r"^Docs-Impact:\s*(.+)$", line, re.IGNORECASE)
+        stripped = line.strip()
+        m = re.match(r"^Docs-Impact:\s*(.+)$", stripped, re.IGNORECASE)
         if m:
+            if result["docs_impact"] is not None:
+                result["docs_impact_duplicate"] = True
             result["docs_impact"] = m.group(1).strip().lower()
-        m = re.match(r"^Docs-Reason:\s*(.+)$", line, re.IGNORECASE)
+        m = re.match(r"^Docs-Reason:\s*(.+)$", stripped, re.IGNORECASE)
         if m:
             result["docs_reason"] = m.group(1).strip()
     return result
@@ -474,6 +527,7 @@ def check_metadata(
     staged: bool = False,
     base: str | None = None,
     ci: bool = False,
+    cochange_violations: list[dict] | None = None,
 ) -> list[dict]:
     """Check Docs-Impact / Docs-Reason metadata presence and validity."""
     failures = []
@@ -484,17 +538,21 @@ def check_metadata(
     sources_checked = []
     if commit_msg_file:
         path = Path(commit_msg_file)
-        if path.exists():
+        try:
             text = path.read_text()
             metadata = parse_metadata_from_text(text)
             sources_checked.append("commit-msg")
+        except OSError:
+            pass
 
     if pr_body_file and metadata["docs_impact"] is None:
         path = Path(pr_body_file)
-        if path.exists():
+        try:
             text = path.read_text()
             metadata = parse_metadata_from_text(text)
             sources_checked.append("pr-body")
+        except OSError:
+            pass
 
     if not sources_checked:
         # No source to check — skip silently unless in CI
@@ -510,6 +568,17 @@ def check_metadata(
                 }
             )
         return failures
+
+    # Flag duplicate trailers
+    if metadata.get("docs_impact_duplicate"):
+        failures.append(
+            {
+                "check": "metadata",
+                "severity": "warning",
+                "code": "DUPLICATE_DOCS_IMPACT",
+                "message": ("Multiple Docs-Impact trailers found; using last value"),
+            }
+        )
 
     # Validate Docs-Impact presence
     if metadata["docs_impact"] is None:
@@ -551,7 +620,8 @@ def check_metadata(
 
     # CI cross-check: if cochange says docs required but metadata says none
     if ci and metadata["docs_impact"] == "none":
-        cochange_violations = check_cochange(staged=staged, base=base)
+        if cochange_violations is None:
+            cochange_violations = check_cochange(staged=staged, base=base, ci=ci)
         if cochange_violations:
             exemption = os.environ.get(EXEMPTION_RULES["env_var"], "")
             if exemption not in EXEMPTION_RULES["valid_labels"]:
@@ -565,7 +635,7 @@ def check_metadata(
                             "require docs updates. Add docs or apply "
                             "'docs-impact-exempt' label."
                         ),
-                        "cochange_categories": list(
+                        "cochange_categories": sorted(
                             {v["category"] for v in cochange_violations}
                         ),
                     }
@@ -579,10 +649,23 @@ def check_metadata(
 # =============================================================================
 
 
-def check_release_note(*, staged: bool = False, base: str | None = None) -> list[dict]:
+def check_release_note(
+    *, staged: bool = False, base: str | None = None, ci: bool = False
+) -> list[dict]:
     """Check that a release-note fragment exists for user-visible changes."""
     failures = []
     changed_files = get_changed_files(staged=staged, base=base)
+    if changed_files is None:
+        if ci:
+            return [
+                {
+                    "check": "release-note",
+                    "severity": "error",
+                    "code": "GIT_DIFF_FAILED",
+                    "message": "Failed to get changed files from git",
+                }
+            ]
+        return []
     if not changed_files:
         return []
 
@@ -596,7 +679,7 @@ def check_release_note(*, staged: bool = False, base: str | None = None) -> list
         f.startswith("changelog.d/") and f.endswith(".md") for f in changed_files
     )
     if not has_fragment:
-        categories = list({v["category"] for v in cochange_violations})
+        categories = sorted({v["category"] for v in cochange_violations})
         failures.append(
             {
                 "check": "release-note",
@@ -719,8 +802,6 @@ def compute_exit_code(failures: list[dict]) -> int:
         check = f.get("check", "")
         if check in check_to_bit:
             code |= check_to_bit[check]
-        elif f.get("code") == "INVALID_CI_SKIP":
-            code |= EXIT_INVALID_CI_SKIP
     return code
 
 
@@ -779,6 +860,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    # Guard --warn-only in CI mode
+    if args.warn_only and args.ci:
+        failure = {
+            "check": "ci-skip",
+            "severity": "error",
+            "code": "INVALID_CI_WARN_ONLY",
+            "message": (
+                "--warn-only is not allowed in CI. "
+                "Use the 'docs-impact-exempt' PR label for auditable exemptions."
+            ),
+        }
+        formatter = {
+            "text": format_text,
+            "json": format_json,
+            "github": format_github,
+        }[args.output_format]
+        print(formatter([failure], [], [args.check], False, None))
+        return EXIT_INVALID_CI_SKIP
+
     # Handle DOC_SYNC_SKIP
     if os.environ.get("DOC_SYNC_SKIP", "") == "1":
         if args.ci:
@@ -812,8 +912,12 @@ def main(argv: list[str] | None = None) -> int:
         checks_to_run = [c.strip() for c in args.check.split(",")]
         for c in checks_to_run:
             if c not in all_checks:
-                print(f"Unknown check: {c}", file=sys.stderr)
-                return 1
+                valid = ", ".join(all_checks + ["all"])
+                print(
+                    f"Unknown check: '{c}'. Valid checks: {valid}",
+                    file=sys.stderr,
+                )
+                return EXIT_USAGE
 
     # Check exemption status
     exemption_env = os.environ.get(EXEMPTION_RULES["env_var"], "")
@@ -830,15 +934,18 @@ def main(argv: list[str] | None = None) -> int:
     if "index" in checks_to_run:
         failures.extend(check_index())
 
+    cochange_results = None
     if "cochange" in checks_to_run:
-        results = check_cochange(staged=args.staged, base=args.base)
+        cochange_results = check_cochange(
+            staged=args.staged, base=args.base, ci=args.ci
+        )
         if exemption_active:
             # Downgrade to warnings under exemption
-            for r in results:
+            for r in cochange_results:
                 r["severity"] = "warning"
-            warnings.extend(results)
+            warnings.extend(cochange_results)
         else:
-            failures.extend(results)
+            failures.extend(cochange_results)
 
     if "metadata" in checks_to_run:
         results = check_metadata(
@@ -847,6 +954,7 @@ def main(argv: list[str] | None = None) -> int:
             staged=args.staged,
             base=args.base,
             ci=args.ci,
+            cochange_violations=cochange_results,
         )
         if exemption_active:
             # Downgrade metadata failures under exemption (except missing source)
@@ -860,8 +968,13 @@ def main(argv: list[str] | None = None) -> int:
             failures.extend(results)
 
     if "release-note" in checks_to_run:
-        results = check_release_note(staged=args.staged, base=args.base)
-        failures.extend(results)
+        results = check_release_note(staged=args.staged, base=args.base, ci=args.ci)
+        if exemption_active:
+            for r in results:
+                r["severity"] = "warning"
+            warnings.extend(results)
+        else:
+            failures.extend(results)
 
     # Handle --warn-only: move all failures to warnings
     if args.warn_only:

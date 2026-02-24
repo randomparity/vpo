@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import json
-import sys
 import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
+import check_doc_sync
 import pytest
-
-# Add scripts/ to path so we can import the module
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
-import check_doc_sync  # noqa: E402
 
 # =============================================================================
 # Fixtures

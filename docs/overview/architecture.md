@@ -106,9 +106,10 @@ The policy schema has evolved through multiple versions:
 - **V6-V8**: Video/audio transcoding with skip conditions, quality settings
 - **V9-V10**: Fixed workflow phases (ANALYZE → APPLY → TRANSCODE)
 - **V11**: User-defined processing phases
-- **V13**: Conditional phases, plugin metadata conditions, enhanced operators (current)
+- **V12**: Plugin metadata conditions, enhanced operators
+- **V13**: Conditional phases, expression language overhaul (current)
 
-#### V13 User-Defined Phases
+#### V13 Phased Policy Format
 
 V13 supports customizable processing phases, allowing users to:
 - Define multiple named phases with arbitrary operations
