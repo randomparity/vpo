@@ -139,6 +139,52 @@ phases:
 
 ---
 
+## Track Pre-Processing Actions
+
+Track actions clean up misconfigured metadata **before** filtering and other evaluation steps. They run at the start of phase evaluation, so flags and titles are normalized before any filter decisions are made.
+
+Three action blocks are available, one per track type:
+
+| Block | Applies to | Available actions |
+|-------|-----------|-------------------|
+| `audio_actions` | Audio tracks | `clear_all_forced`, `clear_all_default`, `clear_all_titles` |
+| `subtitle_actions` | Subtitle tracks | `clear_all_forced`, `clear_all_default`, `clear_all_titles` |
+| `video_actions` | Video tracks | `clear_all_forced`, `clear_all_default`, `clear_all_titles` |
+
+Each action is a boolean (default `false`):
+
+| Action | Effect |
+|--------|--------|
+| `clear_all_forced` | Remove the forced flag from every track of that type |
+| `clear_all_default` | Remove the default flag from every track of that type |
+| `clear_all_titles` | Clear the title string from every track of that type |
+
+### Example: Clean up stale metadata before filtering
+
+```yaml
+schema_version: 13
+phases:
+  - name: cleanup
+    # Clear flags before filters run in this phase
+    audio_actions:
+      clear_all_forced: true
+      clear_all_default: true
+    subtitle_actions:
+      clear_all_forced: true
+    video_actions:
+      clear_all_titles: true   # Remove encoder info from video track titles
+
+    keep_audio:
+      languages: [eng, und]
+    keep_subtitles:
+      languages: [eng]
+      preserve_forced: false   # Safe because forced was cleared above
+```
+
+**Ordering note:** Within a phase, track actions always run before filters and other operations. For example, `subtitle_actions.clear_all_forced` runs before `keep_subtitles.preserve_forced` is evaluated, so tracks that had their forced flag cleared will not be preserved by the filter.
+
+---
+
 ## Container Conversion
 
 Convert between container formats (lossless remuxing):
@@ -231,8 +277,16 @@ config:
   on_error: skip
 
 phases:
-  # First phase: filter unwanted tracks
+  # First phase: clean up metadata and filter unwanted tracks
   - name: filter
+    # Pre-processing: clear stale flags before filtering
+    audio_actions:
+      clear_all_forced: true
+    subtitle_actions:
+      clear_all_forced: true
+    video_actions:
+      clear_all_titles: true   # Remove encoder info from video tracks
+
     audio_filter:
       languages: [eng, und]
       minimum: 1
@@ -241,7 +295,7 @@ phases:
 
     subtitle_filter:
       languages: [eng]
-      preserve_forced: true
+      preserve_forced: false   # Safe because forced was cleared above
 
     attachment_filter:
       remove_all: true

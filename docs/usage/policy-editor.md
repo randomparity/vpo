@@ -314,6 +314,7 @@ Each phase can include any combination of these operations (executed in canonica
 
 | Operation | Description |
 |-----------|-------------|
+| Track Actions | Pre-process audio/subtitle/video flags and titles (YAML only) |
 | Container Conversion | Convert container format (mkv, mp4) |
 | Keep Audio | Filter audio tracks by language |
 | Keep Subtitles | Filter subtitle tracks by language |

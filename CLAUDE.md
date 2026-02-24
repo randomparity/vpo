@@ -228,6 +228,7 @@ The current policy schema version is **V13** (defined in `policy/loader.py` as `
 
 Key V13 features:
 - Track filtering (keep_audio, keep_subtitles, filter_attachments), container conversion
+- Track pre-processing actions (audio_actions, subtitle_actions, video_actions) for clearing flags/titles before filtering
 - Conditional rules (when/then/else conditions and actions)
 - Audio synthesis (create downmixed or re-encoded tracks)
 - Video/audio transcoding with skip conditions, quality settings, hardware acceleration
@@ -268,7 +269,7 @@ phases:
 ```
 
 **Key modules:**
-- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.) — V13 field names: `to`, `crf`, `preset`, `max_resolution`, `scale_algorithm`, `hw`, `hw_fallback`, `preserve`, `bitrate`
+- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.) — V13 field names: `to`, `crf`, `preset`, `max_resolution`, `scale_algorithm`, `hw`, `hw_fallback`, `preserve`, `bitrate`. Track action configs: `AudioActionsConfig`, `SubtitleActionsConfig`, `VideoActionsConfig` (clear_all_forced, clear_all_default, clear_all_titles)
 - `policy/pydantic_models.py`: Pydantic models for YAML parsing and validation
 - `policy/conversion.py`: Functions to convert Pydantic models to frozen dataclasses
 - `policy/loader.py`: High-level loading functions (load_policy, load_policy_from_dict)
@@ -308,6 +309,8 @@ phases:
   - name: normalize
     container:
       target: mkv
+    video_actions:
+      clear_all_titles: true      # Remove encoder strings from video tracks
 
   - name: transcode
     skip_when:
