@@ -103,7 +103,7 @@ The `jobs/` module provides shared utilities for CLI and daemon job processing: 
 
 ## Pull Request Guidelines
 
-When creating PRs with `gh pr create`, read `.github/PULL_REQUEST_TEMPLATE.md` first and use its structure as the `--body`, filling in each section. Do not hardcode a body format — always derive it from the template.
+When creating PRs with `gh pr create`, read `.github/PULL_REQUEST_TEMPLATE.md` first and use its structure as the `--body`, filling in each section. Do not hardcode a body format — always derive it from the template. When updating an existing PR body after push, note that CI reads the body from the event payload at trigger time — so always update the body **before** pushing to ensure the metadata check sees it.
 
 ## Git Commit Guidelines
 
