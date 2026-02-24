@@ -284,8 +284,24 @@ class PhaseDefinition:
         return ops
 
     def is_empty(self) -> bool:
-        """Return True if no operations are defined in this phase."""
-        return len(self.get_operations()) == 0
+        """Return True if no operations are defined in this phase.
+
+        Note: Track pre-processing actions (audio_actions, subtitle_actions,
+        video_actions) are not in the canonical operation registry since they
+        are applied inline by evaluate_policy() rather than dispatched as
+        standalone operations. However, a phase with only actions is still
+        considered non-empty so it is not silently skipped.
+        """
+        if self.get_operations():
+            return False
+        # Check track action configs that are outside the operation registry
+        if self.audio_actions is not None:
+            return False
+        if self.subtitle_actions is not None:
+            return False
+        if self.video_actions is not None:
+            return False
+        return True
 
 
 @dataclass(frozen=True)
