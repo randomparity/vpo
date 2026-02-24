@@ -94,6 +94,7 @@ select = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src", "scripts"]
 markers = [
     "integration: marks tests as integration tests (require external tools)",
     "slow: marks tests as slow (may take longer than usual)",

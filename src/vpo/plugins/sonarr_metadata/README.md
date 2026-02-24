@@ -119,7 +119,7 @@ All dates are in ISO 8601 format (`YYYY-MM-DD`).
 
 ## Using Metadata in Policies
 
-Sonarr metadata is accessed in V12 policies using `plugin_metadata` conditions and `from_plugin_metadata` actions.
+Sonarr metadata is accessed in V13 policies using `plugin_metadata` conditions and `from_plugin_metadata` actions.
 
 ### Condition Operators
 
@@ -304,5 +304,5 @@ Files with non-standard names or absolute numbering (common in anime) may not be
 - [Plugin Development Guide](../../../../docs/plugins.md) — how to create and manage VPO plugins
 - [Radarr Metadata Plugin](../radarr_metadata/README.md) — companion plugin for movies
 - [Example Sonarr Policy](../../../../examples/policies/sonarr-metadata.yaml) — complete working policy
-- [Policy Schema](../../../../docs/usage/policy-editor.md) — V12 policy editing guide
+- [Policy Schema](../../../../docs/usage/policy-editor.md) — V13 policy editing guide
 - [Enrichment Data Model](../../../../specs/038-radarr-sonarr-metadata-plugins/data-model.md) — spec for the enrichment contract

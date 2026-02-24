@@ -1,5 +1,5 @@
 # Pre-commit hooks for VPO
-# Install: pre-commit install && pre-commit install --hook-type pre-push
+# Install: make setup (or: pre-commit install && pre-commit install --hook-type pre-push && pre-commit install --hook-type commit-msg)
 # Run manually: pre-commit run --all-files
 
 repos:
@@ -95,6 +95,44 @@ repos:
         name: cargo check
         description: Verify Rust code compiles before push
         entry: cargo check --manifest-path crates/vpo-core/Cargo.toml
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Documentation sync enforcement
+  - repo: local
+    hooks:
+      - id: doc-sync-schema
+        name: doc schema version check
+        entry: uv run python scripts/check_doc_sync.py --check schema --staged --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: doc-sync-index
+        name: doc index completeness
+        entry: uv run python scripts/check_doc_sync.py --check index --staged --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: doc-sync-metadata
+        name: docs impact metadata check
+        entry: uv run python scripts/check_doc_sync.py --check metadata --commit-msg-file
+        language: system
+        pass_filenames: false
+        stages: [commit-msg]
+
+      - id: doc-sync-cochange
+        name: doc co-change check
+        entry: uv run python scripts/check_doc_sync.py --check cochange --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: doc-sync-release-note
+        name: release note fragment check
+        entry: uv run python scripts/check_doc_sync.py --check release-note --format text
         language: system
         pass_filenames: false
         stages: [pre-push]

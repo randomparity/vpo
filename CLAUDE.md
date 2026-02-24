@@ -123,6 +123,25 @@ git add . && git commit -m "feat: add feature"
 # Second attempt succeeds
 ```
 
+## User Documentation Guidelines
+- Any change affecting user-visible behavior, CLI output/options, policy schema/semantics, plugin behavior, API/UI routes, or configuration must update user documentation in the same changeset.
+- Every commit/PR must declare Docs-Impact: required|none.
+- Docs-Impact: none requires a one-sentence Docs-Reason.
+- Do not mark a task complete until documentation sync checks pass (doc-sync-schema, doc-sync-cochange, doc-sync-index, doc-sync-metadata).
+- If a documentation sync check fails, fix docs first; do not bypass with local skip variables except for temporary WIP commits.
+- CI bypasses are only allowed through maintainer-approved exemptions (`docs-impact-exempt` PR label).
+- For user-visible changes, add a release note fragment in `changelog.d/*.md`.
+
+### Doc-sync enforcement (`scripts/check_doc_sync.py`)
+- **schema**: Detects policy schema version drift between code and docs (YAML + prose)
+- **index**: Verifies all docs in tracked directories are referenced in `docs/INDEX.md`
+- **cochange**: Requires mapped docs updates when user-facing code changes (hard fail in CI)
+- **metadata**: Enforces `Docs-Impact`/`Docs-Reason` trailers in commit messages and PR bodies
+- **release-note**: Requires `changelog.d/*.md` fragment for user-visible changes
+
+Run locally: `python scripts/check_doc_sync.py --check all --format text`
+CI mode: `python scripts/check_doc_sync.py --check all --ci --base origin/main --format github`
+
 ## Constitution
 
 This project has a formal constitution at `.specify/memory/constitution.md` with 18 core principles. Key rules:

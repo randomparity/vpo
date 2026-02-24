@@ -64,7 +64,7 @@ phases:
 
 Change `schema_version: 10` to `schema_version: 11`.
 
-> **Note:** V12 is the current schema version. The V11 migration steps here remain valid as an intermediate step, but new policies should target `schema_version: 12`. See the V12 features documented in [CLAUDE.md](../../CLAUDE.md) for additions beyond V11.
+> **Note:** V13 is the current schema version. The V11 migration steps here remain valid as an intermediate step, but new policies should target `schema_version: 13`. See the V13 features documented in [CLAUDE.md](../../CLAUDE.md) for additions beyond V11.
 
 ### 2. Global Configuration
 
@@ -293,7 +293,7 @@ phases:
 
 ## Backward Compatibility
 
-**Important:** The flat policy format (V10 and earlier) is no longer supported. All policies must use the V12 phased format with `phases` and optional `config` sections.
+**Important:** The flat policy format (V10 and earlier) is no longer supported. All policies must use the V13 phased format with `phases` and optional `config` sections.
 
 If you have existing V10 policies, you must migrate them to the phased format using the patterns shown in this guide.
 

@@ -195,7 +195,7 @@ then:
 A typical container metadata workflow uses multiple phases: clean stale tags, set new values, then audit.
 
 ```yaml
-schema_version: 12
+schema_version: 13
 config:
   on_error: continue
 

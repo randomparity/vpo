@@ -115,10 +115,10 @@ vpo analyze classify /media/movies/ --recursive
 
 ### The `audio_is_multi_language` Condition
 
-Use the `audio_is_multi_language` condition in V12 phased policies:
+Use the `audio_is_multi_language` condition in V13 phased policies:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: analyze
     conditional:
@@ -144,7 +144,7 @@ phases:
 Enable forced subtitles automatically for multi-language content:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: analyze
     conditional:

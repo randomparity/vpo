@@ -7,7 +7,7 @@ This document explains how to use conditional logic in VPO policies to make smar
 
 ## Overview
 
-VPO supports conditional rules in V12 policies that let you apply different actions based on file properties. This enables a single policy to handle multiple scenarios without needing separate policy files.
+VPO supports conditional rules in V13 policies that let you apply different actions based on file properties. This enables a single policy to handle multiple scenarios without needing separate policy files.
 
 **Key capabilities:**
 - Check for track existence (e.g., "does English audio exist?")
@@ -35,10 +35,10 @@ VPO supports conditional rules in V12 policies that let you apply different acti
 
 ## Policy Schema Version
 
-VPO uses V12 phased policy format. Conditional rules are placed within phases:
+VPO uses V13 phased policy format. Conditional rules are placed within phases:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: check
     conditional:
@@ -450,7 +450,7 @@ When no rules match (and no else clause on the last rule), processing continues 
 ### Example 1: Resolution-Based Transcoding
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: check
     conditional:
@@ -483,7 +483,7 @@ phases:
 ### Example 2: Japanese Anime Policy
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: validate
     conditional:
@@ -522,7 +522,7 @@ phases:
 ### Example 3: Multi-Audio Detection
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: analyze
     conditional:

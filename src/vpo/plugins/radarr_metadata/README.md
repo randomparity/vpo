@@ -115,7 +115,7 @@ These fields come from the `/api/v3/moviefile` endpoint and describe the specifi
 
 ## Using Metadata in Policies
 
-Radarr metadata is accessed in V12 policies using `plugin_metadata` conditions and `from_plugin_metadata` actions.
+Radarr metadata is accessed in V13 policies using `plugin_metadata` conditions and `from_plugin_metadata` actions.
 
 ### Condition Operators
 
@@ -271,5 +271,5 @@ The plugin normalizes paths for comparison, but the underlying directory paths m
 - [Plugin Development Guide](../../../../docs/plugins.md) — how to create and manage VPO plugins
 - [Sonarr Metadata Plugin](../sonarr_metadata/README.md) — companion plugin for TV series
 - [Example Radarr Policy](../../../../examples/policies/radarr-metadata.yaml) — complete working policy
-- [Policy Schema](../../../../docs/usage/policy-editor.md) — V12 policy editing guide
+- [Policy Schema](../../../../docs/usage/policy-editor.md) — V13 policy editing guide
 - [Enrichment Data Model](../../../../specs/038-radarr-sonarr-metadata-plugins/data-model.md) — spec for the enrichment contract
