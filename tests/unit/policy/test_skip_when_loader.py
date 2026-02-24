@@ -591,8 +591,30 @@ class TestAudioSubtitleActionsInPhases:
         assert policy.phases[0].subtitle_actions.clear_all_default is False
         assert policy.phases[0].subtitle_actions.clear_all_titles is True
 
-    def test_load_both_actions_in_phase(self) -> None:
-        """Load phase with both audio_actions and subtitle_actions."""
+    def test_load_video_actions_in_phase(self) -> None:
+        """Load phase with video_actions."""
+        policy_dict = {
+            "schema_version": 13,
+            "phases": [
+                {
+                    "name": "cleanup",
+                    "video_actions": {
+                        "clear_all_forced": False,
+                        "clear_all_default": True,
+                        "clear_all_titles": True,
+                    },
+                }
+            ],
+        }
+        policy = load_policy_from_dict(policy_dict)
+        assert isinstance(policy, PolicySchema)
+        assert policy.phases[0].video_actions is not None
+        assert policy.phases[0].video_actions.clear_all_forced is False
+        assert policy.phases[0].video_actions.clear_all_default is True
+        assert policy.phases[0].video_actions.clear_all_titles is True
+
+    def test_load_all_actions_in_phase(self) -> None:
+        """Load phase with audio_actions, subtitle_actions, and video_actions."""
         policy_dict = {
             "schema_version": 13,
             "phases": [
@@ -606,6 +628,9 @@ class TestAudioSubtitleActionsInPhases:
                         "clear_all_forced": True,
                         "clear_all_default": True,
                     },
+                    "video_actions": {
+                        "clear_all_titles": True,
+                    },
                 }
             ],
         }
@@ -613,9 +638,11 @@ class TestAudioSubtitleActionsInPhases:
         assert isinstance(policy, PolicySchema)
         assert policy.phases[0].audio_actions is not None
         assert policy.phases[0].subtitle_actions is not None
+        assert policy.phases[0].video_actions is not None
+        assert policy.phases[0].video_actions.clear_all_titles is True
 
     def test_actions_none_when_not_specified(self) -> None:
-        """audio_actions and subtitle_actions are None when not specified."""
+        """All track actions are None when not specified."""
         policy_dict = {
             "schema_version": 13,
             "phases": [
@@ -629,3 +656,4 @@ class TestAudioSubtitleActionsInPhases:
         assert isinstance(policy, PolicySchema)
         assert policy.phases[0].audio_actions is None
         assert policy.phases[0].subtitle_actions is None
+        assert policy.phases[0].video_actions is None

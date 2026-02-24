@@ -27,6 +27,7 @@ from vpo.policy.types.filters import (
     SubtitleActionsConfig,
     SubtitleFilterConfig,
     TranscriptionPolicyOptions,
+    VideoActionsConfig,
 )
 from vpo.policy.types.plan import PhaseSkipCondition, RunIfCondition
 from vpo.policy.types.transcode import AudioTranscodeConfig, VideoTranscodeConfig
@@ -215,6 +216,9 @@ class PhaseDefinition:
     subtitle_actions: SubtitleActionsConfig | None = None
     """Pre-processing actions for subtitle tracks."""
 
+    video_actions: VideoActionsConfig | None = None
+    """Pre-processing actions for video tracks."""
+
     # Conditional phase execution fields
     skip_when: PhaseSkipCondition | None = None
     """Conditions that cause this phase to be skipped."""
@@ -339,6 +343,9 @@ class EvaluationPolicy:
     subtitle_actions: SubtitleActionsConfig | None = None
     """Subtitle preprocessing actions."""
 
+    video_actions: VideoActionsConfig | None = None
+    """Video preprocessing actions."""
+
     @property
     def has_track_filtering(self) -> bool:
         """True if any track filtering is configured."""
@@ -391,6 +398,7 @@ class EvaluationPolicy:
             transcription=phase.transcription,
             audio_actions=phase.audio_actions,
             subtitle_actions=phase.subtitle_actions,
+            video_actions=phase.video_actions,
         )
 
 

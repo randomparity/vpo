@@ -152,6 +152,39 @@ def evaluate_policy(
                     )
                 )
 
+    # Process video_actions (pre-processing for video tracks)
+    if policy.video_actions is not None:
+        for track in tracks:
+            if track.track_type.casefold() != "video":
+                continue
+            if policy.video_actions.clear_all_forced and track.is_forced:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.CLEAR_FORCED,
+                        track_index=track.index,
+                        current_value=True,
+                        desired_value=False,
+                    )
+                )
+            if policy.video_actions.clear_all_default and track.is_default:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.CLEAR_DEFAULT,
+                        track_index=track.index,
+                        current_value=True,
+                        desired_value=False,
+                    )
+                )
+            if policy.video_actions.clear_all_titles and track.title:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_TITLE,
+                        track_index=track.index,
+                        current_value=track.title,
+                        desired_value="",
+                    )
+                )
+
     # NOTE: Execution order contract - subtitle_actions are applied BEFORE filters.
     # This ensures clear_all_forced runs before preserve_forced filter evaluation.
     # The subtitle_forced_will_be_cleared flag is passed to compute_track_dispositions

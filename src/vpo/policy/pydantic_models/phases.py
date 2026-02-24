@@ -36,6 +36,7 @@ from vpo.policy.pydantic_models.filters import (
     FileTimestampModel,
     SubtitleActionsModel,
     SubtitleFilterModel,
+    VideoActionsModel,
 )
 from vpo.policy.pydantic_models.synthesis import AudioSynthesisModel
 from vpo.policy.pydantic_models.transcode import TranscodeV6Model
@@ -266,6 +267,7 @@ class PhaseModel(BaseModel):
     file_timestamp: FileTimestampModel | None = None
     audio_actions: AudioActionsModel | None = None
     subtitle_actions: SubtitleActionsModel | None = None
+    video_actions: VideoActionsModel | None = None
 
     # Conditional phase execution
     skip_when: PhaseSkipConditionModel | None = None
