@@ -641,8 +641,8 @@ def check_metadata(
             }
         )
 
-    # CI cross-check: if cochange says docs required but metadata says none
-    if ci and metadata["docs_impact"] == "none":
+    # Cross-check: if cochange says docs required but metadata says none
+    if metadata["docs_impact"] == "none":
         if cochange_violations is None:
             cochange_violations = check_cochange(staged=staged, base=base, ci=ci)
         if cochange_violations:
