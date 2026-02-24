@@ -501,22 +501,45 @@ def check_cochange(
 
 
 def parse_metadata_from_text(text: str) -> dict[str, str | None | bool]:
-    """Parse Docs-Impact and Docs-Reason trailers from text."""
+    """Parse Docs-Impact and Docs-Reason trailers from text.
+
+    Supports both git trailer format (``Docs-Impact: value``) and common
+    PR body variations such as markdown list items (``- Docs-Impact: value``)
+    or checkbox items (``- [x] Docs-Impact: value``).
+    """
     result: dict[str, str | None | bool] = {
         "docs_impact": None,
         "docs_reason": None,
         "docs_impact_duplicate": False,
     }
+    # Allow optional leading markdown list/checkbox markers and backtick wrapping.
+    # The value capture is non-greedy and stops at backtick, em-dash, or EOL.
+    _prefix = r"^(?:-\s+(?:\[.\]\s+)?)?`?"
+    impact_re = re.compile(
+        _prefix + r"Docs-Impact:\s*`?\s*([^`\u2014—]+?)\s*(?:`|\u2014|—|$)",
+        re.IGNORECASE,
+    )
+    reason_re = re.compile(
+        _prefix + r"Docs-Reason:\s*`?\s*([^`\u2014—]+?)\s*(?:`|\u2014|—|$)",
+        re.IGNORECASE,
+    )
     for line in text.splitlines():
         stripped = line.strip()
-        m = re.match(r"^Docs-Impact:\s*(.+)$", stripped, re.IGNORECASE)
+        m = impact_re.match(stripped)
         if m:
+            value = m.group(1).strip().lower()
+            # Skip HTML comment placeholders from PR templates
+            if value.startswith("<!--"):
+                continue
             if result["docs_impact"] is not None:
                 result["docs_impact_duplicate"] = True
-            result["docs_impact"] = m.group(1).strip().lower()
-        m = re.match(r"^Docs-Reason:\s*(.+)$", stripped, re.IGNORECASE)
+            result["docs_impact"] = value
+        m = reason_re.match(stripped)
         if m:
-            result["docs_reason"] = m.group(1).strip()
+            value = m.group(1).strip()
+            if value.startswith("<!--"):
+                continue
+            result["docs_reason"] = value
     return result
 
 

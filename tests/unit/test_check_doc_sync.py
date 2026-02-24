@@ -691,3 +691,30 @@ class TestMetadataParsing:
         text = "Docs-Impact:   required  \n"
         result = check_doc_sync.parse_metadata_from_text(text)
         assert result["docs_impact"] == "required"
+
+    def test_parse_markdown_bullet(self):
+        text = "- Docs-Impact: required\n- Docs-Reason: New feature.\n"
+        result = check_doc_sync.parse_metadata_from_text(text)
+        assert result["docs_impact"] == "required"
+        assert result["docs_reason"] == "New feature."
+
+    def test_parse_backtick_wrapped(self):
+        text = "`Docs-Impact: required`\n"
+        result = check_doc_sync.parse_metadata_from_text(text)
+        assert result["docs_impact"] == "required"
+
+    def test_parse_bullet_backtick_with_description(self):
+        text = "- `Docs-Impact: required` \u2014 updated docs\n"
+        result = check_doc_sync.parse_metadata_from_text(text)
+        assert result["docs_impact"] == "required"
+
+    def test_parse_checkbox_format(self):
+        text = "- [x] Docs-Impact: none\n- Docs-Reason: Internal only.\n"
+        result = check_doc_sync.parse_metadata_from_text(text)
+        assert result["docs_impact"] == "none"
+        assert result["docs_reason"] == "Internal only."
+
+    def test_parse_skips_html_comment_placeholder(self):
+        text = "Docs-Impact: <!-- required OR none -->\n"
+        result = check_doc_sync.parse_metadata_from_text(text)
+        assert result["docs_impact"] is None
