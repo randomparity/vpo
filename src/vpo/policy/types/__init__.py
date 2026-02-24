@@ -76,6 +76,7 @@ from vpo.policy.types.filters import (
     SubtitleFilterConfig,
     TranscriptionInfo,
     TranscriptionPolicyOptions,
+    VideoActionsConfig,
 )
 
 # Plan and execution types (extracted)
@@ -181,6 +182,7 @@ __all__ = [
     "AttachmentFilterConfig",
     "AudioActionsConfig",
     "SubtitleActionsConfig",
+    "VideoActionsConfig",
     "CodecTranscodeMapping",
     "ContainerConfig",
     "DefaultFlagsConfig",

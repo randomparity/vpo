@@ -83,6 +83,7 @@ from vpo.policy.types import (
     TrackFilters,
     TrackType,
     TranscriptionPolicyOptions,
+    VideoActionsConfig,
     VideoTranscodeConfig,
     WarnAction,
 )
@@ -845,6 +846,15 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             clear_all_titles=phase.subtitle_actions.clear_all_titles,
         )
 
+    # Convert video_actions
+    video_actions: VideoActionsConfig | None = None
+    if phase.video_actions is not None:
+        video_actions = VideoActionsConfig(
+            clear_all_forced=phase.video_actions.clear_all_forced,
+            clear_all_default=phase.video_actions.clear_all_default,
+            clear_all_titles=phase.video_actions.clear_all_titles,
+        )
+
     # Convert skip_when condition (V13: includes required mode)
     skip_when: PhaseSkipCondition | None = None
     if phase.skip_when is not None:
@@ -902,6 +912,7 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
         file_timestamp=file_timestamp,
         audio_actions=audio_actions,
         subtitle_actions=subtitle_actions,
+        video_actions=video_actions,
         skip_when=skip_when,
         depends_on=depends_on,
         run_if=run_if,

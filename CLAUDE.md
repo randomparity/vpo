@@ -101,6 +101,10 @@ The `jobs/` module provides shared utilities for CLI and daemon job processing: 
 - `@pytest.mark.integration` - Tests requiring external tools (ffprobe, mkvtoolnix)
 - `@pytest.mark.slow` - Tests that take longer than usual
 
+## Pull Request Guidelines
+
+When creating PRs with `gh pr create`, read `.github/PULL_REQUEST_TEMPLATE.md` first and use its structure as the `--body`, filling in each section. Do not hardcode a body format — always derive it from the template. When updating an existing PR body after push, note that CI reads the body from the event payload at trigger time — so always update the body **before** pushing to ensure the metadata check sees it.
+
 ## Git Commit Guidelines
 
 This project uses pre-commit hooks (ruff format, trailing whitespace, etc.) that may modify files during commit.
@@ -228,6 +232,7 @@ The current policy schema version is **V13** (defined in `policy/loader.py` as `
 
 Key V13 features:
 - Track filtering (keep_audio, keep_subtitles, filter_attachments), container conversion
+- Track pre-processing actions (audio_actions, subtitle_actions, video_actions) for clearing flags/titles before filtering
 - Conditional rules (when/then/else conditions and actions)
 - Audio synthesis (create downmixed or re-encoded tracks)
 - Video/audio transcoding with skip conditions, quality settings, hardware acceleration
@@ -268,7 +273,7 @@ phases:
 ```
 
 **Key modules:**
-- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.) — V13 field names: `to`, `crf`, `preset`, `max_resolution`, `scale_algorithm`, `hw`, `hw_fallback`, `preserve`, `bitrate`
+- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.) — V13 field names: `to`, `crf`, `preset`, `max_resolution`, `scale_algorithm`, `hw`, `hw_fallback`, `preserve`, `bitrate`. Track action configs: `AudioActionsConfig`, `SubtitleActionsConfig`, `VideoActionsConfig` (clear_all_forced, clear_all_default, clear_all_titles)
 - `policy/pydantic_models.py`: Pydantic models for YAML parsing and validation
 - `policy/conversion.py`: Functions to convert Pydantic models to frozen dataclasses
 - `policy/loader.py`: High-level loading functions (load_policy, load_policy_from_dict)
@@ -308,6 +313,8 @@ phases:
   - name: normalize
     container:
       target: mkv
+    video_actions:
+      clear_all_titles: true      # Remove encoder strings from video tracks
 
   - name: transcode
     skip_when:

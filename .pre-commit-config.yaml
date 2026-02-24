@@ -118,7 +118,7 @@ repos:
 
       - id: doc-sync-metadata
         name: docs impact metadata check
-        entry: uv run python scripts/check_doc_sync.py --check metadata --commit-msg-file
+        entry: uv run python scripts/check_doc_sync.py --check metadata --staged --commit-msg-file
         language: system
         pass_filenames: false
         stages: [commit-msg]

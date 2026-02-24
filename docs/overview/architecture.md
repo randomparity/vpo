@@ -129,6 +129,7 @@ phases:
 ```
 
 **Canonical Operation Order** (within each phase):
+0. audio_actions/subtitle_actions/video_actions (pre-processing),
 1. container, 2. audio_filter, 3. subtitle_filter, 4. attachment_filter,
 5. track_order, 6. default_flags, 7. conditional, 8. audio_synthesis,
 9. transcode, 10. transcription

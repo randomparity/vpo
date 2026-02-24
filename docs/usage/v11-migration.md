@@ -192,6 +192,7 @@ Operations within each phase execute in this canonical order:
 
 | Order | Operation | Description |
 |-------|-----------|-------------|
+| 0 | `audio_actions`, `subtitle_actions`, `video_actions` | Pre-processing: clear flags/titles before other operations |
 | 1 | `container` | Container format conversion |
 | 2 | `audio_filter` | Filter audio tracks by language |
 | 3 | `subtitle_filter` | Filter subtitle tracks by language |

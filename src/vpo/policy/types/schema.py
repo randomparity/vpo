@@ -27,6 +27,7 @@ from vpo.policy.types.filters import (
     SubtitleActionsConfig,
     SubtitleFilterConfig,
     TranscriptionPolicyOptions,
+    VideoActionsConfig,
 )
 from vpo.policy.types.plan import PhaseSkipCondition, RunIfCondition
 from vpo.policy.types.transcode import AudioTranscodeConfig, VideoTranscodeConfig
@@ -215,6 +216,9 @@ class PhaseDefinition:
     subtitle_actions: SubtitleActionsConfig | None = None
     """Pre-processing actions for subtitle tracks."""
 
+    video_actions: VideoActionsConfig | None = None
+    """Pre-processing actions for video tracks."""
+
     # Conditional phase execution fields
     skip_when: PhaseSkipCondition | None = None
     """Conditions that cause this phase to be skipped."""
@@ -280,8 +284,24 @@ class PhaseDefinition:
         return ops
 
     def is_empty(self) -> bool:
-        """Return True if no operations are defined in this phase."""
-        return len(self.get_operations()) == 0
+        """Return True if no operations are defined in this phase.
+
+        Note: Track pre-processing actions (audio_actions, subtitle_actions,
+        video_actions) are not in the canonical operation registry since they
+        are applied inline by evaluate_policy() rather than dispatched as
+        standalone operations. However, a phase with only actions is still
+        considered non-empty so it is not silently skipped.
+        """
+        if self.get_operations():
+            return False
+        # Check track action configs that are outside the operation registry
+        if self.audio_actions is not None:
+            return False
+        if self.subtitle_actions is not None:
+            return False
+        if self.video_actions is not None:
+            return False
+        return True
 
 
 @dataclass(frozen=True)
@@ -339,6 +359,9 @@ class EvaluationPolicy:
     subtitle_actions: SubtitleActionsConfig | None = None
     """Subtitle preprocessing actions."""
 
+    video_actions: VideoActionsConfig | None = None
+    """Video preprocessing actions."""
+
     @property
     def has_track_filtering(self) -> bool:
         """True if any track filtering is configured."""
@@ -391,6 +414,7 @@ class EvaluationPolicy:
             transcription=phase.transcription,
             audio_actions=phase.audio_actions,
             subtitle_actions=phase.subtitle_actions,
+            video_actions=phase.video_actions,
         )
 
 

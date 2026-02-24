@@ -118,6 +118,19 @@ class SubtitleActionsModel(BaseModel):
     clear_all_titles: bool = False
 
 
+class VideoActionsModel(BaseModel):
+    """Pydantic model for video track pre-processing actions.
+
+    Actions are applied BEFORE filtering to clean up misconfigured metadata.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    clear_all_forced: bool = False
+    clear_all_default: bool = False
+    clear_all_titles: bool = False
+
+
 # Known MP4-compatible codecs for validation warnings (from centralized registry)
 _KNOWN_CODECS = MP4_COMPATIBLE_AUDIO_CODECS | MP4_COMPATIBLE_SUBTITLE_CODECS
 

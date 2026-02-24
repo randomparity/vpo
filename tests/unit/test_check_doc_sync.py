@@ -401,7 +401,7 @@ class TestMetadataCheck:
         assert failures[0]["code"] == "NO_METADATA_SOURCE"
 
     def test_ci_cross_check_with_cochange(self, repo):
-        """In CI, Docs-Impact: none should fail if cochange rules fire."""
+        """Docs-Impact: none should fail if cochange rules fire (CI and local)."""
         msg_file = _write(
             repo,
             "COMMIT_MSG",
@@ -435,6 +435,44 @@ class TestMetadataCheck:
         ):
             failures = check_doc_sync.check_metadata(
                 commit_msg_file=str(msg_file), ci=True
+            )
+
+        conflict = [f for f in failures if f["code"] == "METADATA_COCHANGE_CONFLICT"]
+        assert len(conflict) == 0
+
+    def test_local_cross_check_with_cochange(self, repo):
+        """Docs-Impact: none should fail locally if cochange rules fire."""
+        msg_file = _write(
+            repo,
+            "COMMIT_MSG",
+            "refactor: cleanup\n\nDocs-Impact: none\nDocs-Reason: Internal only.\n",
+        )
+        with patch.object(
+            check_doc_sync,
+            "get_changed_files",
+            return_value=["src/vpo/policy/loader.py"],
+        ):
+            failures = check_doc_sync.check_metadata(
+                commit_msg_file=str(msg_file), ci=False
+            )
+
+        conflict = [f for f in failures if f["code"] == "METADATA_COCHANGE_CONFLICT"]
+        assert len(conflict) == 1
+
+    def test_local_cross_check_no_violation(self, repo):
+        """Docs-Impact: none with non-matching files passes locally."""
+        msg_file = _write(
+            repo,
+            "COMMIT_MSG",
+            "refactor: cleanup\n\nDocs-Impact: none\nDocs-Reason: Internal only.\n",
+        )
+        with patch.object(
+            check_doc_sync,
+            "get_changed_files",
+            return_value=["src/vpo/core/utils.py"],
+        ):
+            failures = check_doc_sync.check_metadata(
+                commit_msg_file=str(msg_file), ci=False
             )
 
         conflict = [f for f in failures if f["code"] == "METADATA_COCHANGE_CONFLICT"]

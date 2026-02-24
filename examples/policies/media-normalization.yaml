@@ -60,8 +60,8 @@ phases:
 
   # Phase 3: Clear stale track metadata, remove unwanted language tracks.
   - name: cleanup
-    # audio_actions / subtitle_actions run BEFORE filters in the same phase.
-    # This lets you clear flags before filtering decisions are made.
+    # audio_actions / subtitle_actions / video_actions run BEFORE filters
+    # in the same phase. This lets you clear flags before filtering decisions.
     audio_actions:
       clear_all_forced: true    # Remove forced flag from all audio tracks
       clear_all_default: true   # Remove default flag from all audio tracks
@@ -75,6 +75,10 @@ phases:
       clear_all_forced: true
       clear_all_default: true
       clear_all_titles: false
+    video_actions:
+      clear_all_titles: true    # Remove encoder info from video track titles
+      clear_all_default: false
+      clear_all_forced: false
     keep_subtitles:
       languages: [eng, und]
       preserve_forced: false  # Don't preserve forced subs (we cleared forced above)
