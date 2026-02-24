@@ -20,6 +20,7 @@ from vpo.policy.types import (
     DefaultFlagsConfig,
     EvaluationPolicy,
     TrackType,
+    VideoActionsConfig,
 )
 
 # =============================================================================
@@ -1163,3 +1164,228 @@ class TestFindPreferredTrack:
             preferred_codecs=(),
         )
         assert result is tracks[0]
+
+
+class TestVideoActions:
+    """Tests for video_actions pre-processing in evaluate_policy."""
+
+    def test_clear_all_titles_generates_set_title(self):
+        """video_actions.clear_all_titles should generate SET_TITLE for video tracks."""
+        policy = EvaluationPolicy(
+            video_actions=VideoActionsConfig(clear_all_titles=True),
+            default_flags=DefaultFlagsConfig(set_first_video_default=False),
+        )
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                title="x264 / 1080p / 25000 kbps",
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Surround 5.1",
+            ),
+        ]
+        plan = evaluate_policy(
+            file_id="test",
+            file_path=Path("/test.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+        title_actions = [
+            a for a in plan.actions if a.action_type == ActionType.SET_TITLE
+        ]
+        # Only video track should get SET_TITLE, not audio
+        assert len(title_actions) == 1
+        assert title_actions[0].track_index == 0
+        assert title_actions[0].desired_value == ""
+
+    def test_clear_all_forced_generates_clear_forced(self):
+        """clear_all_forced generates CLEAR_FORCED for forced video tracks."""
+        policy = EvaluationPolicy(
+            video_actions=VideoActionsConfig(clear_all_forced=True),
+            default_flags=DefaultFlagsConfig(set_first_video_default=False),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc", is_forced=True),
+            TrackInfo(
+                index=1, track_type="audio", codec="aac", language="eng", is_forced=True
+            ),
+        ]
+        plan = evaluate_policy(
+            file_id="test",
+            file_path=Path("/test.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+        forced_actions = [
+            a for a in plan.actions if a.action_type == ActionType.CLEAR_FORCED
+        ]
+        # Only video track should be affected
+        assert len(forced_actions) == 1
+        assert forced_actions[0].track_index == 0
+
+    def test_clear_all_default_generates_clear_default(self):
+        """clear_all_default generates CLEAR_DEFAULT for default video tracks."""
+        policy = EvaluationPolicy(
+            video_actions=VideoActionsConfig(clear_all_default=True),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=False,
+                set_preferred_audio_default=False,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc", is_default=True),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                is_default=True,
+            ),
+        ]
+        plan = evaluate_policy(
+            file_id="test",
+            file_path=Path("/test.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+        default_actions = [
+            a for a in plan.actions if a.action_type == ActionType.CLEAR_DEFAULT
+        ]
+        # Only video track should be affected
+        assert len(default_actions) == 1
+        assert default_actions[0].track_index == 0
+
+    def test_idempotent_no_action_when_already_desired(self):
+        """No actions when video track already has the desired state."""
+        policy = EvaluationPolicy(
+            video_actions=VideoActionsConfig(
+                clear_all_forced=True,
+                clear_all_default=True,
+                clear_all_titles=True,
+            ),
+            default_flags=DefaultFlagsConfig(set_first_video_default=False),
+        )
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                is_forced=False,
+                is_default=False,
+                title="",
+            ),
+        ]
+        plan = evaluate_policy(
+            file_id="test",
+            file_path=Path("/test.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+        video_actions = [
+            a
+            for a in plan.actions
+            if a.action_type
+            in (
+                ActionType.CLEAR_FORCED,
+                ActionType.CLEAR_DEFAULT,
+                ActionType.SET_TITLE,
+            )
+        ]
+        assert video_actions == []
+
+    def test_clear_all_default_suppresses_set_default_from_default_flags(self):
+        """clear_all_default suppresses SET_DEFAULT from default_flags."""
+        policy = EvaluationPolicy(
+            video_actions=VideoActionsConfig(clear_all_default=True),
+            default_flags=DefaultFlagsConfig(set_first_video_default=True),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc", is_default=True),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                is_default=True,
+            ),
+        ]
+        plan = evaluate_policy(
+            file_id="test",
+            file_path=Path("/test.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+        # Should have CLEAR_DEFAULT for video but NOT SET_DEFAULT
+        video_clear = [
+            a
+            for a in plan.actions
+            if a.action_type == ActionType.CLEAR_DEFAULT and a.track_index == 0
+        ]
+        video_set = [
+            a
+            for a in plan.actions
+            if a.action_type == ActionType.SET_DEFAULT and a.track_index == 0
+        ]
+        assert len(video_clear) == 1
+        assert len(video_set) == 0
+
+    def test_no_actions_for_non_video_tracks(self):
+        """video_actions should not affect audio or subtitle tracks."""
+        policy = EvaluationPolicy(
+            video_actions=VideoActionsConfig(
+                clear_all_forced=True,
+                clear_all_default=True,
+                clear_all_titles=True,
+            ),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=False,
+                set_preferred_audio_default=False,
+                clear_other_defaults=False,
+            ),
+        )
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                is_forced=True,
+                is_default=True,
+                title="Main Audio",
+            ),
+            TrackInfo(
+                index=1,
+                track_type="subtitle",
+                codec="subrip",
+                language="eng",
+                is_forced=True,
+                is_default=True,
+                title="English",
+            ),
+        ]
+        plan = evaluate_policy(
+            file_id="test",
+            file_path=Path("/test.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+        # No actions from video_actions since there are no video tracks
+        video_action_types = {
+            ActionType.CLEAR_FORCED,
+            ActionType.CLEAR_DEFAULT,
+            ActionType.SET_TITLE,
+        }
+        video_actions = [a for a in plan.actions if a.action_type in video_action_types]
+        assert video_actions == []

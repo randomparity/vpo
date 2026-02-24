@@ -34,15 +34,57 @@ from vpo.policy.evaluator.transcription import (
 from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
+    AudioActionsConfig,
     ConditionalResult,
     ContainerChange,
     EvaluationPolicy,
     Plan,
     PlannedAction,
     SkipFlags,
+    SubtitleActionsConfig,
     TrackDisposition,
     TranscriptionInfo,
+    VideoActionsConfig,
 )
+
+
+def _apply_track_actions(
+    actions: list[PlannedAction],
+    tracks: list[TrackInfo],
+    config: AudioActionsConfig | SubtitleActionsConfig | VideoActionsConfig,
+    track_type: str,
+) -> None:
+    """Apply pre-processing actions (clear flags/titles) to tracks of a given type."""
+    for track in tracks:
+        if track.track_type.casefold() != track_type:
+            continue
+        if config.clear_all_forced and track.is_forced:
+            actions.append(
+                PlannedAction(
+                    action_type=ActionType.CLEAR_FORCED,
+                    track_index=track.index,
+                    current_value=True,
+                    desired_value=False,
+                )
+            )
+        if config.clear_all_default and track.is_default:
+            actions.append(
+                PlannedAction(
+                    action_type=ActionType.CLEAR_DEFAULT,
+                    track_index=track.index,
+                    current_value=True,
+                    desired_value=False,
+                )
+            )
+        if config.clear_all_titles and track.title:
+            actions.append(
+                PlannedAction(
+                    action_type=ActionType.SET_TITLE,
+                    track_index=track.index,
+                    current_value=track.title,
+                    desired_value="",
+                )
+            )
 
 
 def evaluate_policy(
@@ -118,108 +160,20 @@ def evaluate_policy(
     actions: list[PlannedAction] = []
     requires_remux = False
 
-    # Process track actions (pre-processing, applied before filters)
-    # These generate CLEAR_FORCED/CLEAR_DEFAULT/SET_TITLE actions to normalize metadata
-    if policy.audio_actions is not None:
-        for track in tracks:
-            if track.track_type.casefold() != "audio":
-                continue
-            if policy.audio_actions.clear_all_forced and track.is_forced:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.CLEAR_FORCED,
-                        track_index=track.index,
-                        current_value=True,
-                        desired_value=False,
-                    )
-                )
-            if policy.audio_actions.clear_all_default and track.is_default:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.CLEAR_DEFAULT,
-                        track_index=track.index,
-                        current_value=True,
-                        desired_value=False,
-                    )
-                )
-            if policy.audio_actions.clear_all_titles and track.title:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.SET_TITLE,
-                        track_index=track.index,
-                        current_value=track.title,
-                        desired_value="",
-                    )
-                )
-
-    # Process video_actions (pre-processing for video tracks)
-    if policy.video_actions is not None:
-        for track in tracks:
-            if track.track_type.casefold() != "video":
-                continue
-            if policy.video_actions.clear_all_forced and track.is_forced:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.CLEAR_FORCED,
-                        track_index=track.index,
-                        current_value=True,
-                        desired_value=False,
-                    )
-                )
-            if policy.video_actions.clear_all_default and track.is_default:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.CLEAR_DEFAULT,
-                        track_index=track.index,
-                        current_value=True,
-                        desired_value=False,
-                    )
-                )
-            if policy.video_actions.clear_all_titles and track.title:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.SET_TITLE,
-                        track_index=track.index,
-                        current_value=track.title,
-                        desired_value="",
-                    )
-                )
-
+    # Process track pre-processing actions (applied before filters).
+    # These generate CLEAR_FORCED/CLEAR_DEFAULT/SET_TITLE actions to normalize metadata.
     # NOTE: Execution order contract - subtitle_actions are applied BEFORE filters.
     # This ensures clear_all_forced runs before preserve_forced filter evaluation.
     # The subtitle_forced_will_be_cleared flag is passed to compute_track_dispositions
     # so that preserve_forced correctly ignores tracks that will have forced cleared.
+    # Video actions have no ordering dependency with other action blocks since
+    # video tracks are independent of subtitle/audio filtering.
+    if policy.audio_actions is not None:
+        _apply_track_actions(actions, tracks, policy.audio_actions, "audio")
     if policy.subtitle_actions is not None:
-        for track in tracks:
-            if track.track_type.casefold() != "subtitle":
-                continue
-            if policy.subtitle_actions.clear_all_forced and track.is_forced:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.CLEAR_FORCED,
-                        track_index=track.index,
-                        current_value=True,
-                        desired_value=False,
-                    )
-                )
-            if policy.subtitle_actions.clear_all_default and track.is_default:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.CLEAR_DEFAULT,
-                        track_index=track.index,
-                        current_value=True,
-                        desired_value=False,
-                    )
-                )
-            if policy.subtitle_actions.clear_all_titles and track.title:
-                actions.append(
-                    PlannedAction(
-                        action_type=ActionType.SET_TITLE,
-                        track_index=track.index,
-                        current_value=track.title,
-                        desired_value="",
-                    )
-                )
+        _apply_track_actions(actions, tracks, policy.subtitle_actions, "subtitle")
+    if policy.video_actions is not None:
+        _apply_track_actions(actions, tracks, policy.video_actions, "video")
 
     # Convert track flag changes from conditional rules to PlannedActions
     if conditional_result is not None and conditional_result.track_flag_changes:
@@ -329,10 +283,24 @@ def evaluate_policy(
     # - No tracks of type: skips that type
     desired_defaults = compute_default_flags(tracks, policy, matcher)
 
+    # Suppress SET_DEFAULT for video tracks when video_actions.clear_all_default
+    # is active, to avoid conflicting actions (analogous to
+    # subtitle_forced_will_be_cleared guard for subtitle tracks).
+    video_default_will_be_cleared = (
+        policy.video_actions is not None and policy.video_actions.clear_all_default
+    )
+
     # Create actions for flag changes
     for track in tracks:
         desired = desired_defaults.get(track.index)
         if desired is not None and desired != track.is_default:
+            # Skip SET_DEFAULT for video tracks if video_actions clears them
+            if (
+                desired
+                and video_default_will_be_cleared
+                and track.track_type.casefold() == "video"
+            ):
+                continue
             if desired:
                 action_type = ActionType.SET_DEFAULT
             else:
