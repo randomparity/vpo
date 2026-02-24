@@ -215,8 +215,8 @@ class SubtitleActionsConfig:
 class VideoActionsConfig:
     """Pre-processing actions for video tracks.
 
-    Actions are applied BEFORE filtering, allowing cleanup of misconfigured
-    metadata before filter decisions are made. Use these to normalize track
+    Actions are applied during pre-processing, allowing cleanup of misconfigured
+    metadata before other evaluation steps. Use these to normalize track
     flags and clear verbose encoder titles from video tracks.
 
     Example use case: Clear all video track titles that contain encoder
@@ -224,13 +224,13 @@ class VideoActionsConfig:
     """
 
     clear_all_forced: bool = False
-    """If True, clear forced flag from all video tracks before filtering."""
+    """If True, clear forced flag from all video tracks during pre-processing."""
 
     clear_all_default: bool = False
-    """If True, clear default flag from all video tracks before filtering."""
+    """If True, clear default flag from all video tracks during pre-processing."""
 
     clear_all_titles: bool = False
-    """If True, clear title from all video tracks before filtering."""
+    """If True, clear title from all video tracks during pre-processing."""
 
 
 @dataclass(frozen=True)

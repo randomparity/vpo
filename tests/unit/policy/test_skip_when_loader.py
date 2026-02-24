@@ -544,7 +544,7 @@ class TestOnErrorOverrideLoading:
         assert policy.phases[0].on_error is None
 
 
-class TestAudioSubtitleActionsInPhases:
+class TestTrackActionsInPhases:
     """Tests for audio_actions and subtitle_actions in phases."""
 
     def test_load_audio_actions_in_phase(self) -> None:
