@@ -101,6 +101,10 @@ The `jobs/` module provides shared utilities for CLI and daemon job processing: 
 - `@pytest.mark.integration` - Tests requiring external tools (ffprobe, mkvtoolnix)
 - `@pytest.mark.slow` - Tests that take longer than usual
 
+## Pull Request Guidelines
+
+When creating PRs with `gh pr create`, read `.github/PULL_REQUEST_TEMPLATE.md` first and use its structure as the `--body`, filling in each section. Do not hardcode a body format — always derive it from the template.
+
 ## Git Commit Guidelines
 
 This project uses pre-commit hooks (ruff format, trailing whitespace, etc.) that may modify files during commit.
