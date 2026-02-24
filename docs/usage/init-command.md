@@ -154,10 +154,10 @@ See [Configuration](configuration.md) for detailed documentation of all settings
 
 ### policies/default.yaml
 
-The default policy demonstrates common track ordering patterns using V12 phased format:
+The default policy demonstrates common track ordering patterns using V13 phased format:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 
 config:
   on_error: skip

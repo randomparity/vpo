@@ -7,7 +7,7 @@ Configure transcoding settings in your policy YAML files to convert video files 
 Create a policy file with transcode settings:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: transcode
     transcode:
@@ -246,7 +246,7 @@ transcode:
 ### High Quality Archive
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: archive
     transcode:
@@ -263,7 +263,7 @@ phases:
 ### Space-Efficient Storage
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: compress
     transcode:
@@ -282,7 +282,7 @@ phases:
 ### Device Compatibility
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: convert
     transcode:
@@ -338,7 +338,7 @@ VPO supports conditional transcoding with skip conditions, advanced quality cont
 Skip transcoding for files that already meet your requirements:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: transcode
     transcode:
@@ -453,7 +453,7 @@ transcode:
 ### Complete Transcode Example
 
 ```yaml
-schema_version: 12
+schema_version: 13
 config:
   on_error: skip
 

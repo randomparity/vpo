@@ -45,6 +45,7 @@ setup:  ## Setup complete dev environment (venv, install, hooks)
 		echo "==> Installing pre-commit hooks..."; \
 		uv run pre-commit install; \
 		uv run pre-commit install --hook-type pre-push; \
+		uv run pre-commit install --hook-type commit-msg; \
 	elif command -v pyenv >/dev/null 2>&1; then \
 		echo "==> Creating virtual environment with Python $(PYTHON_VERSION) (pyenv)..."; \
 		pyenv install -s $(PYTHON_VERSION); \
@@ -57,6 +58,7 @@ setup:  ## Setup complete dev environment (venv, install, hooks)
 		echo "==> Installing pre-commit hooks..."; \
 		.venv/bin/pre-commit install; \
 		.venv/bin/pre-commit install --hook-type pre-push; \
+		.venv/bin/pre-commit install --hook-type commit-msg; \
 	else \
 		echo "Error: uv or pyenv required (system Python may be incompatible)"; \
 		echo "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"; \

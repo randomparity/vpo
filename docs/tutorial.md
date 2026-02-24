@@ -125,7 +125,7 @@ This shows you:
 Policies are YAML files that describe how you want your video files organized. Create a file called `my-policy.yaml`:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 
 config:
   on_error: skip
@@ -155,7 +155,7 @@ phases:
 
 ### Policy Structure
 
-- **schema_version**: Always `12` for current policies
+- **schema_version**: Always `13` for current policies
 - **config**: Global settings (error handling)
 - **phases**: List of processing phases, each with a name and operations
 
@@ -164,7 +164,7 @@ phases:
 **Prefer Japanese audio with English subtitles (anime):**
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: anime
     audio_filter:
@@ -183,7 +183,7 @@ phases:
 **Filter and transcode:**
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: filter
     audio_filter:

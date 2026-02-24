@@ -98,3 +98,41 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
+
+  # Documentation sync enforcement
+  - repo: local
+    hooks:
+      - id: doc-sync-schema
+        name: doc schema version check
+        entry: python scripts/check_doc_sync.py --check schema --staged --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: doc-sync-index
+        name: doc index completeness
+        entry: python scripts/check_doc_sync.py --check index --staged --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: doc-sync-metadata
+        name: docs impact metadata check
+        entry: python scripts/check_doc_sync.py --check metadata --commit-msg-file
+        language: system
+        pass_filenames: false
+        stages: [commit-msg]
+
+      - id: doc-sync-cochange
+        name: doc co-change check
+        entry: python scripts/check_doc_sync.py --check cochange --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: doc-sync-release-note
+        name: release note fragment check
+        entry: python scripts/check_doc_sync.py --check release-note --format text
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

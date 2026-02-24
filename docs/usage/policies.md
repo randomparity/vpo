@@ -19,7 +19,7 @@ VPO policies are YAML files that define rules for:
 
 ## Policy Schema Version
 
-VPO uses the **V12 schema** with phased policy format. All policies must use this format with `phases` and optional `config` sections.
+VPO uses the **V13 schema** with phased policy format. All policies must use this format with `phases` and optional `config` sections.
 
 **Note:** Older flat policy formats are no longer supported. All policies must use the phased format shown below.
 
@@ -29,7 +29,7 @@ VPO uses the **V12 schema** with phased policy format. All policies must use thi
 
 ```yaml
 # Required: schema version and phases
-schema_version: 12
+schema_version: 13
 
 # Optional global configuration
 config:
@@ -75,7 +75,7 @@ Track filtering removes unwanted tracks. Track filtering is applied before track
 Remove audio tracks that don't match preferred languages:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: filter
     audio_filter:
@@ -107,7 +107,7 @@ phases:
 Remove subtitle tracks with options to preserve forced subtitles:
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: filter
     subtitle_filter:
@@ -127,7 +127,7 @@ phases:
 Remove attachment tracks (fonts, cover art):
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: filter
     attachment_filter:
@@ -144,7 +144,7 @@ phases:
 Convert between container formats (lossless remuxing):
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: convert
     container:
@@ -184,7 +184,7 @@ MKV supports virtually all codecs. MP4 has limitations:
 Policies can read and write container-level metadata tags (title, encoder, creation_time, etc.) using conditional rules. Use `container_metadata` conditions to check tag values and `set_container_metadata` actions to set or clear them.
 
 ```yaml
-schema_version: 12
+schema_version: 13
 phases:
   - name: metadata
     conditional:
@@ -224,7 +224,7 @@ For the full reference — including operator details, field validation rules, a
 
 ```yaml
 # Full-featured policy for organizing a video library
-schema_version: 12
+schema_version: 13
 
 # Global configuration
 config:
